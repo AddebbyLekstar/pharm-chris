@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Product } from '../../sim/types';
 import { BoxMeshPool } from './BoxMeshPool';
+import { normalizeCategory } from './PharmacyShelves3D';
 
 export interface MedicineStackOptions {
   anchor: THREE.Group;
@@ -61,6 +62,27 @@ export class MedicineStack {
     const entry = this.items.pop()!;
     this.pool.release(entry.mesh);
     return entry.product;
+  }
+
+  public popMatching(category: string): Product | null {
+    const targetCat = normalizeCategory(category);
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      const entry = this.items[i];
+      const prodCat = entry.product.isColdChain ? 'cold_chain' : normalizeCategory(entry.product.category);
+      if (prodCat === targetCat) {
+        this.items.splice(i, 1);
+        this.pool.release(entry.mesh);
+        this.repositionItems();
+        return entry.product;
+      }
+    }
+    return null;
+  }
+
+  private repositionItems(): void {
+    for (let i = 0; i < this.items.length; i++) {
+      this.items[i].mesh.position.set(0, i * this.boxSpacing, 0);
+    }
   }
 
   public peek(): Product | null {

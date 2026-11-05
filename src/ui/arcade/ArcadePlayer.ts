@@ -27,7 +27,7 @@ export class ArcadePlayer {
       minZ: -6.5,
       maxZ: 6.5,
     };
-    this.baseSpeed = options?.baseSpeed ?? 5.5;
+    this.baseSpeed = options?.baseSpeed ?? 6.0;
 
     this.mesh = new THREE.Group();
     this.mesh.position.set(0, 0, 0);
@@ -156,8 +156,10 @@ export class ArcadePlayer {
 
     const currentSpeed = this.speed;
     // In 3D: X is right, Z is down/towards screen
-    const moveX = dir.x * currentSpeed * delta;
-    const moveZ = dir.y * currentSpeed * delta;
+    const worldX = dir.x;
+    const worldZ = dir.y;
+    const moveX = worldX * currentSpeed * delta;
+    const moveZ = worldZ * currentSpeed * delta;
 
     this.mesh.position.x += moveX;
     this.mesh.position.z += moveZ;
@@ -167,7 +169,7 @@ export class ArcadePlayer {
     this.mesh.position.z = Math.max(this.bounds.minZ, Math.min(this.bounds.maxZ, this.mesh.position.z));
 
     // Smooth rotation towards movement direction
-    const targetAngle = Math.atan2(dir.x, dir.y);
+    const targetAngle = Math.atan2(worldX, worldZ);
     let diff = targetAngle - this.mesh.rotation.y;
     // Wrap around [-PI, PI]
     while (diff < -Math.PI) diff += Math.PI * 2;

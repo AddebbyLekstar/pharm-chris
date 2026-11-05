@@ -78,4 +78,16 @@ describe('Task 2: InputController & ArcadePlayer', () => {
     expect(player.stackSocket).toBeDefined();
     expect(player.stackSocket.parent).toBe(player.mesh);
   });
+
+  it('has baseSpeed 6.0 and moves orthogonally without 45-degree skew', () => {
+    const p = new ArcadePlayer();
+    expect(p.baseSpeed).toBe(6.0);
+
+    // Move straight UP (dir = (0, -1))
+    p.position.set(0, 0, 0);
+    p.move(new THREE.Vector2(0, -1), 0.1);
+    // Should move strictly along Z axis, X must remain 0 (no 45 deg diagonal drift)
+    expect(p.position.x).toBeCloseTo(0, 4);
+    expect(p.position.z).toBeCloseTo(-0.6, 2);
+  });
 });

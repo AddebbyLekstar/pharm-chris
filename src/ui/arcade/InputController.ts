@@ -40,14 +40,12 @@ export class InputController {
     this.container.style.touchAction = 'none';
     this.createJoystickDom();
 
-    container.addEventListener('touchstart', this.onTouchStart, { passive: false });
-    container.addEventListener('touchmove', this.onTouchMove, { passive: false });
-    container.addEventListener('touchend', this.onTouchEnd, { passive: false });
-    container.addEventListener('touchcancel', this.onTouchEnd, { passive: false });
-
-    // Desktop mouse drag support
-    container.addEventListener('mousedown', this.onMouseDown);
     if (typeof window !== 'undefined') {
+      window.addEventListener('touchstart', this.onTouchStart, { passive: false });
+      window.addEventListener('touchmove', this.onTouchMove, { passive: false });
+      window.addEventListener('touchend', this.onTouchEnd, { passive: false });
+      window.addEventListener('touchcancel', this.onTouchEnd, { passive: false });
+      window.addEventListener('mousedown', this.onMouseDown);
       window.addEventListener('mousemove', this.onMouseMove);
       window.addEventListener('mouseup', this.onMouseUp);
     }
@@ -155,20 +153,31 @@ export class InputController {
     }
   }
 
+  private isIgnoredTarget(e: Event): boolean {
+    const target = e.target as Element | null;
+    return !!target?.closest?.('button, .arcade-dialogue-card');
+  }
+
   private onTouchStart = (e: TouchEvent): void => {
+    if (this.isIgnoredTarget(e)) return;
     if (e.changedTouches.length > 0) {
       const t = e.changedTouches[0];
       this.handleTouchStart(t.identifier, t.clientX, t.clientY);
-      e.preventDefault();
+      if (e.cancelable) {
+        e.preventDefault();
+      }
     }
   };
 
   private onTouchMove = (e: TouchEvent): void => {
+    if (this.isIgnoredTarget(e)) return;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === this.joystick.identifier) {
         this.handleTouchMove(t.identifier, t.clientX, t.clientY);
-        e.preventDefault();
+        if (e.cancelable) {
+          e.preventDefault();
+        }
         break;
       }
     }
@@ -179,7 +188,9 @@ export class InputController {
       const t = e.changedTouches[i];
       if (t.identifier === this.joystick.identifier) {
         this.handleTouchEnd(t.identifier);
-        e.preventDefault();
+        if (e.cancelable) {
+          e.preventDefault();
+        }
         break;
       }
     }
@@ -204,6 +215,7 @@ export class InputController {
 
   private onMouseDown = (e: MouseEvent): void => {
     if (e.button !== 0) return;
+    if (this.isIgnoredTarget(e)) return;
     this.handleMouseDown(e.clientX, e.clientY);
   };
 
@@ -242,15 +254,13 @@ export class InputController {
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', this.onKeyDown);
       window.removeEventListener('keyup', this.onKeyUp);
+      window.removeEventListener('touchstart', this.onTouchStart);
+      window.removeEventListener('touchmove', this.onTouchMove);
+      window.removeEventListener('touchend', this.onTouchEnd);
+      window.removeEventListener('touchcancel', this.onTouchEnd);
+      window.removeEventListener('mousedown', this.onMouseDown);
       window.removeEventListener('mousemove', this.onMouseMove);
       window.removeEventListener('mouseup', this.onMouseUp);
-    }
-    if (this.container) {
-      this.container.removeEventListener('touchstart', this.onTouchStart);
-      this.container.removeEventListener('touchmove', this.onTouchMove);
-      this.container.removeEventListener('touchend', this.onTouchEnd);
-      this.container.removeEventListener('touchcancel', this.onTouchEnd);
-      this.container.removeEventListener('mousedown', this.onMouseDown);
     }
   }
 }

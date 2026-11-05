@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ArcadePlayer } from './ArcadePlayer';
 import { MedicineStack } from './MedicineStack';
-import { PharmacyShelves3D, normalizeCategory } from './PharmacyShelves3D';
+import { PharmacyShelves3D } from './PharmacyShelves3D';
 import { PharmChrisEngine } from '../../sim/engine';
 import { Product } from '../../sim/types';
 
@@ -170,18 +170,11 @@ export class TriggerZoneManager {
     for (const [zoneId, category] of Object.entries(shelfZoneMap)) {
       const zone = this.zones.get(zoneId);
       if (zone && zone.isInside(player.position)) {
-        // Check if top product matches category
-        const top = stack.peek();
-        if (top) {
-          const topCat = top.isColdChain ? 'cold_chain' : normalizeCategory(top.category);
-          if (topCat === category) {
-            const popped = stack.pop();
-            if (popped) {
-              this.shelves.addStock(category, 1);
-              this.transferCooldown = this.transferInterval;
-              return;
-            }
-          }
+        const popped = stack.popMatching(category);
+        if (popped) {
+          this.shelves.addStock(category, 1);
+          this.transferCooldown = this.transferInterval;
+          return;
         }
       }
     }

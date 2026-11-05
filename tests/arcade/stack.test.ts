@@ -115,4 +115,23 @@ describe('Task 3: MedicineStack & BoxMeshPool', () => {
     stack.pop();
     expect(pool.availableCount).toBe(15);
   });
+
+  it('pops matching category from any position in stack and repositions remainder', () => {
+    // Stack: bottom = Antimalarial (index 0), top = Analgesic (index 1)
+    stack.push(mockProductAntimalarial);
+    stack.push(mockProductAnalgesic);
+    expect(stack.count).toBe(2);
+
+    // Pop antimalarial (which is under the analgesic)
+    const popped = stack.popMatching('antimalarial');
+    expect(popped).toBeDefined();
+    expect(popped?.category).toBe('antimalarial');
+    expect(stack.count).toBe(1);
+
+    // Remaining item is analgesic, repositioned to bottom (index 0)
+    const remainingMeshes = stack.getMeshes();
+    expect(remainingMeshes.length).toBe(1);
+    expect(remainingMeshes[0].position.y).toBe(0);
+    expect(stack.peek()?.id).toBe(mockProductAnalgesic.id);
+  });
 });

@@ -64,6 +64,28 @@ describe('Task 4: TriggerZone & PharmacyShelves3D', () => {
     expect(shelves.getStock('antimalarial')).toBe(initialShelfCount + 1);
   });
 
+  it('restocks matching shelf even when buried under other categories', () => {
+    const antimalarial = engine.getAllProducts().find((p) => p.category.toLowerCase().includes('malar'))!;
+    const analgesic = engine.getAllProducts().find((p) => p.category.toLowerCase().includes('analges'))!;
+
+    // Stack: antimalarial bottom, analgesic top
+    stack.push(antimalarial);
+    stack.push(analgesic);
+    expect(stack.count).toBe(2);
+
+    // Stand in antimalarial shelf zone
+    const malarZone = zoneManager.getZone('shelf_antimalarial')!;
+    player.position.copy(malarZone.position);
+
+    const initialMalarStock = shelves.getStock('antimalarial');
+    zoneManager.update(0.25, player, stack);
+
+    // Antimalarial was popped from underneath! Remaining stack count is 1 (the analgesic)
+    expect(stack.count).toBe(1);
+    expect(stack.peek()?.id).toBe(analgesic.id);
+    expect(shelves.getStock('antimalarial')).toBe(initialMalarStock + 1);
+  });
+
   it('provides visual 3D shelf meshes and pulsing floor rings', () => {
     expect(shelves.group.children.length).toBeGreaterThan(0);
     const dockZone = zoneManager.getZone('dock')!;

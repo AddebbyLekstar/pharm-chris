@@ -183,12 +183,14 @@ export class ArcadeGameDirector {
     if (isPlayerAtCounter) {
       const frontCust = this.customerQueue.getFrontCustomer();
       if (frontCust && frontCust.state === 'serving') {
-        if (frontCust.isStoryCustomer) {
+        const isTrueStoryVIP = frontCust.isStoryCustomer && !frontCust.hasNegotiated;
+        if (isTrueStoryVIP) {
           if (!this.dialogueModal.isOpen) {
             this.dialogueModal.open({
               customer: frontCust.data,
               engine: this.engine,
               onComplete: (res) => {
+                frontCust.hasNegotiated = true;
                 if (res.success) {
                   this.cashManager.spawnCash(new THREE.Vector3(0, 1.2, 1.5), res.cashEarned);
                   this.juice.spawnFloatingText(`+₦${res.cashEarned}`, new THREE.Vector3(0, 1.6, 1.5), '#00E676');

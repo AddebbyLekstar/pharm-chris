@@ -11,6 +11,7 @@ export class ArcadeApp {
   private hudCashEl!: HTMLElement;
   private hudDebtEl!: HTMLElement;
   private hudStackEl!: HTMLElement;
+  private hudObjectiveEl!: HTMLElement;
   private hudMuteBtn!: HTMLButtonElement;
   private viewportContainer!: HTMLElement;
   private uiOverlayEl!: HTMLElement;
@@ -66,6 +67,49 @@ export class ArcadeApp {
     this.uiOverlayEl.style.fontFamily = 'system-ui, -apple-system, sans-serif';
 
     this.uiOverlayEl.innerHTML = `
+      <style>
+        @keyframes arcade-banner-pulse {
+          0%, 100% {
+            transform: translateX(-50%) scale(1);
+            box-shadow: 0 4px 18px rgba(0, 230, 118, 0.35);
+            border-color: #00E676;
+          }
+          50% {
+            transform: translateX(-50%) scale(1.03);
+            box-shadow: 0 4px 26px rgba(0, 230, 118, 0.65);
+            border-color: #69F0AE;
+          }
+        }
+        @media (pointer: coarse), (hover: none) {
+          .desktop-hint { display: none !important; }
+          .mobile-hint { display: inline !important; }
+        }
+      </style>
+
+      <!-- Pulsing Objective Guide (Top Center) -->
+      <div id="arcade-objective-banner" style="
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, rgba(18, 28, 23, 0.94), rgba(10, 18, 14, 0.96));
+        border: 2px solid #00E676;
+        border-radius: 20px;
+        padding: 8px 20px;
+        color: #FFFFFF;
+        font-size: 0.88rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 18px rgba(0, 230, 118, 0.35);
+        pointer-events: none;
+        z-index: 15;
+        white-space: nowrap;
+        animation: arcade-banner-pulse 1.8s infinite ease-in-out;
+        text-align: center;
+      ">
+        📦 WALK TO LOADING DOCK TO COLLECT MEDICINE
+      </div>
+
       <!-- Top Bar -->
       <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; pointer-events: auto; gap: 8px; flex-wrap: wrap;">
         <div style="display: flex; gap: 8px; align-items: center;">
@@ -112,7 +156,16 @@ export class ArcadeApp {
     this.hudCashEl = this.uiOverlayEl.querySelector('#arcade-hud-cash')!;
     this.hudDebtEl = this.uiOverlayEl.querySelector('#arcade-hud-debt')!;
     this.hudStackEl = this.uiOverlayEl.querySelector('#arcade-hud-stack')!;
+    this.hudObjectiveEl = this.uiOverlayEl.querySelector('#arcade-objective-banner')!;
     this.hudMuteBtn = this.uiOverlayEl.querySelector('#arcade-btn-mute')!;
+
+    const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || (navigator && (navigator.maxTouchPoints > 0)));
+    if (isTouch) {
+      const desktopHint = this.uiOverlayEl.querySelector('.desktop-hint') as HTMLElement | null;
+      const mobileHint = this.uiOverlayEl.querySelector('.mobile-hint') as HTMLElement | null;
+      if (desktopHint) desktopHint.style.display = 'none';
+      if (mobileHint) mobileHint.style.display = 'inline';
+    }
 
     this.hudMuteBtn.addEventListener('click', () => {
       soundFx.isMuted = !soundFx.isMuted;
@@ -130,6 +183,27 @@ export class ArcadeApp {
       this.hudDebtEl.textContent = `₦${debtFormatted}`;
       this.hudDayEl.textContent = `${state.day} / 90`;
       this.hudStackEl.textContent = `${this.director.stack.count} / ${this.director.stack.maxCapacity}`;
+
+      // Update objective banner
+      const cashDrops = this.director.cashManager.activeCashCount;
+      const stackCount = this.director.stack.count;
+      const shelvesStocked = this.director.shelves.getTotalStock() > 0;
+      const customersWaiting = this.director.customerQueue.queueLength > 0;
+
+      let objectiveText = '';
+      if (cashDrops > 0) {
+        objectiveText = '💰 COLLECT ₦ CASH & UPGRADE';
+      } else if (stackCount > 0) {
+        objectiveText = '🚚 RESTOCK THE SHELVES';
+      } else if (shelvesStocked && customersWaiting) {
+        objectiveText = '🛒 SERVE CUSTOMERS AT COUNTER';
+      } else {
+        objectiveText = '📦 WALK TO LOADING DOCK TO COLLECT MEDICINE';
+      }
+
+      if (this.hudObjectiveEl && this.hudObjectiveEl.textContent !== objectiveText) {
+        this.hudObjectiveEl.textContent = objectiveText;
+      }
 
       this.animFrameId = requestAnimationFrame(updateHud);
     };

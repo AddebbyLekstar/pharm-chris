@@ -141,6 +141,14 @@ export class PharmacyShelves3D {
     return this.stockLevels.get(key) ?? 0;
   }
 
+  public getTotalStock(): number {
+    let total = 0;
+    for (const val of this.stockLevels.values()) {
+      total += val;
+    }
+    return total;
+  }
+
   public addStock(category: string, amount: number = 1): void {
     const key = normalizeCategory(category);
     const current = this.getStock(key);

@@ -10,6 +10,7 @@ export class ArcadeCustomer {
   public slotIndex: number;
   public state: CustomerState = 'walking';
   public isStoryCustomer: boolean;
+  public hasNegotiated: boolean = false;
   public targetPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 8.5);
   
   private walkTimer: number = 0;
@@ -43,12 +44,9 @@ export class ArcadeCustomer {
     const storyIds = [
       'cust_mama_ngozi',
       'cust_emeka',
-      'cust_bayo_danfo',
-      'cust_alabi',
-      'cust_iya_basira',
       'cust_danjuma',
     ];
-    return storyIds.includes(id) || id.startsWith('cust_mama') || id.startsWith('cust_emeka');
+    return storyIds.includes(id);
   }
 
   private buildCustomerModel(): void {
