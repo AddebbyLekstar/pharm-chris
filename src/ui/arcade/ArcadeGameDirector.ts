@@ -38,6 +38,7 @@ export class ArcadeGameDirector {
   private animFrameId: number | null = null;
   private lastTimestamp: number = 0;
   private container: HTMLElement | null = null;
+  private outOfStockCooldown: number = 0;
 
   constructor(options: ArcadeGameDirectorOptions) {
     this.engine = options.engine;
@@ -162,6 +163,7 @@ export class ArcadeGameDirector {
   };
 
   public tick(delta: number): void {
+    this.outOfStockCooldown = Math.max(0, this.outOfStockCooldown - delta);
     const dir = this.input.getDirection();
 
     // 1. Move Player & Update Stack
@@ -189,18 +191,27 @@ export class ArcadeGameDirector {
               onComplete: (res) => {
                 if (res.success) {
                   this.cashManager.spawnCash(new THREE.Vector3(0, 1.2, 1.5), res.cashEarned);
-                  frontCust.setLeaving();
+                  this.juice.spawnFloatingText(`+₦${res.cashEarned}`, new THREE.Vector3(0, 1.6, 1.5), '#00E676');
                   soundFx.playChimeSuccess?.();
                 }
+                frontCust.setLeaving();
+                this.customerQueue.reindexSlots();
               },
             });
           }
         } else {
           const serviceRes = this.customerQueue.processCounterService(true);
-          if (serviceRes && serviceRes.success) {
-            this.cashManager.spawnCash(new THREE.Vector3(0, 1.2, 1.5), serviceRes.cashEarned);
-            this.juice.spawnFloatingText(`+₦${serviceRes.cashEarned}`, new THREE.Vector3(0, 1.6, 1.5), '#00E676');
-            soundFx.playCoin?.();
+          if (serviceRes) {
+            if (serviceRes.success) {
+              this.cashManager.spawnCash(new THREE.Vector3(0, 1.2, 1.5), serviceRes.cashEarned);
+              this.juice.spawnFloatingText(`+₦${serviceRes.cashEarned}`, new THREE.Vector3(0, 1.6, 1.5), '#00E676');
+              soundFx.playCoin?.();
+            } else if (serviceRes.outOfStockCategory && this.outOfStockCooldown <= 0) {
+              const catName = serviceRes.outOfStockCategory.replace('_', ' ').toUpperCase();
+              this.juice.spawnFloatingText(`SHELF EMPTY: ${catName}!`, new THREE.Vector3(0, 1.8, 1.5), '#FF5252');
+              soundFx.playBuzz?.();
+              this.outOfStockCooldown = 2.0;
+            }
           }
         }
       }

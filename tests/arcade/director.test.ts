@@ -48,4 +48,48 @@ describe('Task 7: ArcadeGameDirector Integration', () => {
     director.applyUpgrade('upgrade_speed');
     expect(director.player.speedMultiplier).toBeGreaterThan(initialSpeed);
   });
+
+  it('shows floating text warning when shelf is empty at checkout counter', () => {
+    // Move player to cashier counter zone
+    const counterZone = director.zoneManager.getZone('counter_cashier')!;
+    director.player.position.copy(counterZone.position);
+
+    // Deplete antimalarial shelf stock
+    const malarStock = director.shelves.getStock('antimalarial');
+    director.shelves.consumeStock('antimalarial', malarStock);
+
+    // Inject a non-story customer wanting antimalarial at counter
+    const genericCust = {
+      ...engine.getCurrentCustomer(),
+      id: 'cust_rush_need_malar',
+      matchedProductIds: ['prd_malaguard_forte'],
+    };
+    director.customerQueue.injectCustomer(genericCust, 'serving');
+
+    // Tick director
+    director.tick(0.016);
+
+    // Check floating text in juice
+    // Juice records floating text
+    const texts = (director.juice as any).floatingTexts;
+    expect(texts.length).toBeGreaterThan(0);
+    expect(texts[0].text).toContain('SHELF EMPTY: ANTIMALARIAL!');
+  });
+
+  it('handles dialogue cancellation without stalling queue at counter', () => {
+    const counterZone = director.zoneManager.getZone('counter_cashier')!;
+    director.player.position.copy(counterZone.position);
+
+    // Story customer at counter
+    const storyCustData = { ...engine.getCurrentCustomer(), id: 'cust_mama_ngozi' };
+    const storyCust = director.customerQueue.injectCustomer(storyCustData, 'serving');
+
+    director.tick(0.016);
+    expect(director.dialogueModal.isOpen).toBe(true);
+
+    // Cancel/decline dialogue
+    director.dialogueModal.close();
+    expect(director.dialogueModal.isOpen).toBe(false);
+    expect(storyCust.state).toBe('leaving');
+  });
 });

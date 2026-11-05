@@ -67,7 +67,7 @@ export class TriggerZoneManager {
   public engine: PharmChrisEngine;
   private zones: Map<string, TriggerZone> = new Map();
   private transferCooldown: number = 0;
-  private readonly transferInterval: number = 0.2;
+  private readonly transferInterval: number = 0.12;
   private availableProducts: Product[];
   private dockProductIndex: number = 0;
 

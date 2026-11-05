@@ -18,9 +18,9 @@ describe('Task 5: Customer Queuing & Hybrid Counter Interaction', () => {
   });
 
   it('spawns customers and arranges them in queue order', () => {
-    expect(queue.queueLength).toBe(0);
+    expect(queue.queueLength).toBe(2); // Spawns 2 customers on initialization to eliminate lag
     queue.spawnCustomer();
-    expect(queue.queueLength).toBe(1);
+    expect(queue.queueLength).toBe(3);
 
     const firstCust = queue.getFrontCustomer();
     expect(firstCust).toBeDefined();
@@ -72,10 +72,13 @@ describe('Task 5: Customer Queuing & Hybrid Counter Interaction', () => {
     modal.mount(container);
 
     const mamaNgozi = engine.getCurrentCustomer();
+    let completionResult: any = null;
     modal.open({
       customer: mamaNgozi,
       engine,
-      onComplete: () => {},
+      onComplete: (res) => {
+        completionResult = res;
+      },
     });
 
     expect(modal.isOpen).toBe(true);
@@ -83,5 +86,52 @@ describe('Task 5: Customer Queuing & Hybrid Counter Interaction', () => {
 
     modal.close();
     expect(modal.isOpen).toBe(false);
+    expect(completionResult).toBeDefined();
+    expect(completionResult.success).toBe(false);
+  });
+
+  it('reports outOfStockCategory when requested shelf has zero stock', () => {
+    // Deplete antimalarial shelf stock
+    const malarStock = shelves.getStock('antimalarial');
+    shelves.consumeStock('antimalarial', malarStock);
+    expect(shelves.getStock('antimalarial')).toBe(0);
+
+    const genericCust = {
+      ...engine.getCurrentCustomer(),
+      id: 'cust_rush_antimalarial_only',
+      matchedProductIds: ['prd_malaguard_forte'],
+    };
+    const cust = queue.injectCustomer(genericCust, 'serving');
+
+    const res = queue.processCounterService(true);
+    expect(res).toBeDefined();
+    expect(res?.success).toBe(false);
+    expect(res?.outOfStockCategory).toBe('antimalarial');
+    expect(cust.state).toBe('serving'); // Remains at counter until stocked
+  });
+
+  it('advances queue forward when front customer is dismissed', () => {
+    // Advance customers to counter
+    for (let i = 0; i < 30; i++) {
+      queue.update(0.1);
+    }
+
+    const front = queue.getFrontCustomer();
+    expect(front).toBeDefined();
+    expect(front?.state).toBe('serving');
+
+    // Dismiss front customer
+    front!.setLeaving();
+    queue.reindexSlots();
+
+    // Step forward to let slot 1 move into serving slot 0
+    for (let i = 0; i < 20; i++) {
+      queue.update(0.1);
+    }
+
+    const newFront = queue.getFrontCustomer();
+    expect(newFront).toBeDefined();
+    expect(newFront).not.toBe(front);
+    expect(newFront?.state).toBe('serving');
   });
 });

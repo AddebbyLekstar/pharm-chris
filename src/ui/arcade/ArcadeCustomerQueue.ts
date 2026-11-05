@@ -9,12 +9,14 @@ export interface CounterServiceResult {
   customer: Customer;
   productServed?: Product;
   cashEarned: number;
+  outOfStockCategory?: string;
 }
 
 export interface ArcadeCustomerQueueOptions {
   engine: PharmChrisEngine;
   shelves: PharmacyShelves3D;
   maxQueue?: number;
+  initialSpawn?: number;
 }
 
 export class ArcadeCustomerQueue {
@@ -32,6 +34,12 @@ export class ArcadeCustomerQueue {
     this.shelves = options.shelves;
     this.maxQueue = options.maxQueue ?? 5;
     this.group = new THREE.Group();
+
+    // Spawn initial customers immediately on initialization (default 2)
+    const initialSpawn = options.initialSpawn ?? 2;
+    for (let i = 0; i < initialSpawn; i++) {
+      this.spawnCustomer();
+    }
   }
 
   public get queueLength(): number {
@@ -70,6 +78,13 @@ export class ArcadeCustomerQueue {
     return customer;
   }
 
+  public getCustomerCategory(cust: ArcadeCustomer): { category: string; product: Product } {
+    const matchedId = cust.data.matchedProductIds[0];
+    const product = this.engine.getAllProducts().find((p) => p.id === matchedId) || this.engine.getAllProducts()[0];
+    const cat = product.isColdChain ? 'cold_chain' : normalizeCategory(product.category);
+    return { category: cat, product };
+  }
+
   public processCounterService(playerAtCounter: boolean): CounterServiceResult | null {
     if (!playerAtCounter) return null;
 
@@ -77,13 +92,16 @@ export class ArcadeCustomerQueue {
     if (!front || front.state !== 'serving') return null;
 
     // Find matching product
-    const matchedId = front.data.matchedProductIds[0];
-    const product = this.engine.getAllProducts().find((p) => p.id === matchedId) || this.engine.getAllProducts()[0];
-    const cat = product.isColdChain ? 'cold_chain' : normalizeCategory(product.category);
+    const { category: cat, product } = this.getCustomerCategory(front);
 
     // Check if shelf has stock
     if (this.shelves.getStock(cat) <= 0) {
-      return null;
+      return {
+        success: false,
+        customer: front.data,
+        cashEarned: 0,
+        outOfStockCategory: cat,
+      };
     }
 
     // Consume shelf stock and complete transaction
@@ -101,7 +119,7 @@ export class ArcadeCustomerQueue {
     };
   }
 
-  private reindexSlots(): void {
+  public reindexSlots(): void {
     const active = this.customers.filter((c) => c.state !== 'leaving');
     active.forEach((cust, idx) => {
       cust.updateTargetSlot(idx);

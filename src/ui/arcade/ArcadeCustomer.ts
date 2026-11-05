@@ -147,6 +147,9 @@ export class ArcadeCustomer {
     const dist = Math.abs(dz);
 
     if (dist > 0.05) {
+      if (this.state !== 'leaving') {
+        this.state = 'walking';
+      }
       const speed = 2.8;
       const step = Math.sign(dz) * Math.min(dist, speed * delta);
       this.mesh.position.z += step;
@@ -165,7 +168,7 @@ export class ArcadeCustomer {
       this.rightLeg.rotation.x = 0;
       this.mesh.rotation.y = Math.PI; // Face counter (north)
 
-      if (this.state === 'walking') {
+      if (this.state !== 'leaving') {
         if (this.slotIndex === 0) {
           this.state = 'serving';
         } else {
