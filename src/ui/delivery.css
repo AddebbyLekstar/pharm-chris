@@ -1,0 +1,571 @@
+/* Stage 3: Morning Delivery & Inspection Minigame Styles */
+
+.delivery-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: #141115;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px;
+  gap: 16px;
+}
+
+.delivery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #201a24;
+  border: 3px solid #3c3245;
+  padding: 12px 16px;
+  border-radius: 4px;
+  box-shadow: 0 4px 0 #0d0b0f;
+}
+
+.delivery-header-title {
+  font-family: var(--font-pixel);
+  font-size: 15px;
+  color: #f7d54d;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.delivery-header-badges {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.quota-badge {
+  background: #2b1d3d;
+  color: #c9a4f2;
+  border: 2px solid #5a3889;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.courier-banner {
+  background: #2a2233;
+  border: 2px dashed #6b5780;
+  padding: 12px 14px;
+  border-radius: 4px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.courier-avatar {
+  font-size: 28px;
+  line-height: 1;
+  background: #17131c;
+  border: 2px solid #4a3b59;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.courier-info {
+  flex: 1;
+}
+
+.courier-title {
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  color: #ff9b54;
+  margin-bottom: 4px;
+}
+
+.courier-desc {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #ddd4e6;
+  line-height: 1.4;
+}
+
+.delivery-workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 840px) {
+  .delivery-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Carton & Blister Inspection Cards */
+.inspection-card {
+  background: #1c1822;
+  border: 3px solid #3c3245;
+  border-radius: 4px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 4px 0 #0d0b0f;
+}
+
+.card-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #2d2536;
+  padding-bottom: 8px;
+}
+
+.card-title {
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  color: #4ef2bb;
+  letter-spacing: 0.5px;
+}
+
+.crate-pixel-view {
+  background: #25202e;
+  border: 2px solid #483d57;
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crate-prop-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.prop-label {
+  color: #9f91b0;
+}
+
+.prop-val {
+  color: #f4ebdd;
+  font-weight: bold;
+}
+
+.prop-val.mismatch {
+  color: #ff5454;
+  background: #471313;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid #992222;
+}
+
+.prop-val.intact {
+  color: #4ef2bb;
+  background: #113829;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid #1f7051;
+}
+
+.prop-val.tampered {
+  color: #ffaa33;
+  background: #4a2d0a;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid #8f5313;
+}
+
+/* Interactive Blister Pack & Scratch Panel */
+.blister-visual-container {
+  background: #24222b;
+  border: 2px solid #5a5169;
+  border-radius: 6px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.blister-pills-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.blister-pill-slot {
+  background: radial-gradient(circle, #5b556b 0%, #2f2a3a 100%);
+  border: 2px solid #7c7490;
+  height: 28px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e5def0;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+.mas-scratch-panel-wrapper {
+  width: 100%;
+  background: #17151e;
+  border: 2px solid #4a4059;
+  border-radius: 4px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scratch-card-canvas-box {
+  position: relative;
+  width: 100%;
+  height: 54px;
+  border: 2px dashed #9f91b0;
+  border-radius: 4px;
+  background: #0f0e13;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scratch-underlying-code {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: #ffea79;
+  text-shadow: 0 1px 2px #000;
+  background: #1e1927;
+}
+
+.scratch-silver-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #c0c0c0 0%, #858585 50%, #d8d8d8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: bold;
+  color: #3b3b3b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: opacity 0.2s ease, width 0.15s ease;
+}
+
+.scratch-silver-overlay.scratched {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scratch-actions-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-scratch-coin {
+  flex: 1;
+  background: #443954;
+  border: 2px solid #6b5c82;
+  color: #f7ebff;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.btn-scratch-coin:hover {
+  background: #5b4b70;
+}
+
+.btn-sms-agency {
+  flex: 2;
+  background: #1a4d38;
+  border: 2px solid #2e8b65;
+  color: #79ffd1;
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-sms-agency:hover:not(:disabled) {
+  background: #246a4d;
+}
+
+.btn-sms-agency:disabled {
+  background: #232a26;
+  border-color: #3f4a43;
+  color: #6d7871;
+  cursor: not-allowed;
+}
+
+/* Simulated Agency SMS Notification Box */
+.sms-agency-phone-box {
+  background: #0f1a14;
+  border: 2px solid #1e4533;
+  border-radius: 4px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sms-agency-phone-box.fake-alert {
+  background: #2b0c0c;
+  border-color: #781c1c;
+}
+
+.sms-header-line {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #75c9a4;
+  border-bottom: 1px solid #1d402f;
+  padding-bottom: 4px;
+}
+
+.fake-alert .sms-header-line {
+  color: #ff8585;
+  border-bottom-color: #591616;
+}
+
+.sms-body-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  color: #e5fbf2;
+}
+
+.fake-alert .sms-body-text {
+  color: #ffd8d8;
+  font-weight: bold;
+}
+
+/* Alert Note Warning */
+.ledger-warning-box {
+  background: #3d1b1b;
+  border: 2px solid #852a2a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #ffb8b8;
+  line-height: 1.4;
+}
+
+/* Delivery Decision Toolbar */
+.delivery-actions-dock {
+  background: #201a26;
+  border: 3px solid #3c3245;
+  border-radius: 4px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 0 #0d0b0f;
+}
+
+.delivery-dock-title {
+  font-family: var(--font-pixel);
+  font-size: 13px;
+  color: #f7d54d;
+}
+
+.delivery-buttons-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .delivery-buttons-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-delivery-action {
+  padding: 12px 14px;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  border: 3px solid #000;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.08s ease;
+}
+
+.btn-delivery-action:active {
+  transform: translateY(2px);
+}
+
+.btn-delivery-action.accept {
+  background: #2b7a4b;
+  border-color: #174229;
+  color: #ffffff;
+}
+
+.btn-delivery-action.accept:hover {
+  background: #35965c;
+}
+
+.btn-delivery-action.reject {
+  background: #a83232;
+  border-color: #5c1b1b;
+  color: #ffffff;
+}
+
+.btn-delivery-action.reject:hover {
+  background: #c43b3b;
+}
+
+.btn-delivery-action.quarantine {
+  background: #966b17;
+  border-color: #543b0d;
+  color: #ffffff;
+}
+
+.btn-delivery-action.quarantine:hover {
+  background: #b5821d;
+}
+
+.btn-sub-caption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+/* Resolution Outcome Overlay Modal */
+.delivery-resolution-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 8, 14, 0.85);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  padding: 16px;
+}
+
+.delivery-resolution-modal {
+  background: #1b1622;
+  border: 4px solid #4a3c5a;
+  border-radius: 6px;
+  width: 100%;
+  max-width: 580px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 0 #000;
+}
+
+.modal-outcome-header {
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #332740;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-outcome-header.accept {
+  color: #5bf29b;
+}
+
+.modal-outcome-header.reject {
+  color: #ff6b6b;
+}
+
+.modal-outcome-header.quarantine {
+  color: #ffd05b;
+}
+
+.resolution-narrative-quote {
+  background: #251e2e;
+  border-left: 4px solid #7c619b;
+  padding: 10px 14px;
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quote-speaker {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: #f7a55b;
+}
+
+.quote-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.4;
+  color: #e2daeb;
+}
+
+.resolution-stat-deltas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: #141119;
+  border: 2px solid #31283c;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.stat-delta-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.stat-delta-chip .label {
+  color: #8c809a;
+  font-size: 10px;
+}
+
+.stat-delta-chip .value {
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.stat-delta-chip .value.positive {
+  color: #5bf29b;
+}
+
+.stat-delta-chip .value.negative {
+  color: #ff6b6b;
+}
+
+.stat-delta-chip .value.neutral {
+  color: #ddd4e6;
+}
