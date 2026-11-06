@@ -47,19 +47,20 @@ export class ArcadeScene {
   }
 
   private buildLighting(): void {
-    // Warm ambient light characteristic of Lagos late morning sunlight
-    const ambient = new THREE.AmbientLight(0xfff7ec, 1.15);
+    // Spec 2.2: AmbientLight - Warm ambient fill to lift contrast
+    const ambient = new THREE.AmbientLight(0xfff7ec, 0.90);
     this.group.add(ambient);
 
-    // Directional sunlight casting crisp isometric arcade shadows
-    const sun = new THREE.DirectionalLight(0xffeed6, 1.7);
-    sun.position.set(12, 22, 14);
+    // Spec 2.2: DirectionalLight (Sun) - Primary sun cutting 45° crisp isometric shadows
+    const sun = new THREE.DirectionalLight(0xffeed6, 1.75);
+    sun.position.set(12.0, 22.0, 14.0);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
     sun.shadow.mapSize.height = 2048;
     sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 50;
+    sun.shadow.camera.far = 55;
     sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.02;
     const d = 16;
     sun.shadow.camera.left = -d;
     sun.shadow.camera.right = d;
@@ -67,38 +68,44 @@ export class ArcadeScene {
     sun.shadow.camera.bottom = -d;
     this.group.add(sun);
 
-    // Sky/ground bounce hemisphere
+    // Spec 2.2: HemisphereLight - Sky ambient fill and warm terrazzo floor bounce
     const hemi = new THREE.HemisphereLight(0xb5e2ff, 0x3d2716, 0.45);
+    hemi.position.set(0, 20.0, 0);
     this.group.add(hemi);
 
-    // Warm focused ceiling downlight illuminating the cashier counter
-    const counterSpot = new THREE.PointLight(0xfff3db, 1.4, 14, 1.1);
-    counterSpot.position.set(0, 3.8, 1.5);
+    // Spec 2.2: PointLight (Counter Spot) - Spotlights dispensary counter
+    const counterSpot = new THREE.PointLight(0xfff3db, 1.50, 14.0, 1.1);
+    counterSpot.position.set(0.0, 3.8, 1.5);
     this.group.add(counterSpot);
 
-    // Subtle neon green accent wash from back cross logo
-    const dispensaryGlow = new THREE.PointLight(0x00e676, 0.5, 12, 1.4);
-    dispensaryGlow.position.set(0, 3.2, -7.5);
-    this.group.add(dispensaryGlow);
+    // Spec 2.2: PointLight (Green Cross Glow) - Back-wall medical neon glow
+    const crossGlow = new THREE.PointLight(0x00e676, 0.65, 10.0, 1.5);
+    crossGlow.position.set(0.0, 3.2, -7.5);
+    this.group.add(crossGlow);
   }
 
   private buildPharmacyEnvironment(): void {
-    // Floor: Premium polished ivory terrazzo tile styling with high contrast
+    // Spec 2.3: Floor (Terrazzo Tile) 16m x 18m
     const floorGeo = new THREE.PlaneGeometry(16, 18);
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0xf4f1ea,
-      roughness: 0.35,
-      metalness: 0.05,
+      roughness: 0.32,
+      metalness: 0.04,
     });
     const floorMesh = new THREE.Mesh(floorGeo, floorMat);
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.receiveShadow = true;
     this.group.add(floorMesh);
 
-    // Contrasting dark perimeter border / base trim around interior floor
+    // Spec 2.3: Procedural Grout Grid overlay (1m spacing lines)
+    const gridHelper = new THREE.GridHelper(16, 16, 0xddd6c8, 0xddd6c8);
+    gridHelper.position.y = 0.001;
+    this.group.add(gridHelper);
+
+    // Spec 2.3: Perimeter Skirting / Border: Width 0.6m, color 0x182E24, roughness 0.55
     const borderMat = new THREE.MeshStandardMaterial({
       color: 0x182e24,
-      roughness: 0.5,
+      roughness: 0.55,
     });
     // North perimeter strip
     const northBorder = new THREE.Mesh(new THREE.PlaneGeometry(16, 0.6), borderMat);
@@ -190,18 +197,51 @@ export class ArcadeScene {
     frontRight.position.set(5, 2.25, 9.25);
     this.group.add(frontRight);
 
-    // Counter separating back dispensary from customer waiting area
-    const counterGeo = new THREE.BoxGeometry(8, 1.2, 1.2);
-    const counterMat = new THREE.MeshStandardMaterial({
-      color: 0x7c4522, // Polished African teak wood counter
-      roughness: 0.25,
-      metalness: 0.08,
+    // Spec 2.3: Dispensary Counter (Teak Wood base + Ivory Laminate Top + Glass Guard)
+    // Base Counter: BoxGeometry(6.4, 1.15, 0.95), Nigerian Teak wood panels (0x4E342E)
+    const counterGeo = new THREE.BoxGeometry(6.4, 1.15, 0.95);
+    const teakMat = new THREE.MeshStandardMaterial({
+      color: 0x4e342e,
+      roughness: 0.65,
+      metalness: 0.05,
     });
-    const counter = new THREE.Mesh(counterGeo, counterMat);
-    counter.position.set(0, 0.6, 1.5);
+    const counter = new THREE.Mesh(counterGeo, teakMat);
+    counter.position.set(0, 0.575, 1.5);
     counter.castShadow = true;
     counter.receiveShadow = true;
     this.group.add(counter);
+
+    // Beveled ivory laminate countertop slab
+    const slabGeo = new THREE.BoxGeometry(6.6, 0.12, 1.1);
+    const slabMat = new THREE.MeshStandardMaterial({
+      color: 0xf7fafc,
+      roughness: 0.20,
+      metalness: 0.08,
+    });
+    const slab = new THREE.Mesh(slabGeo, slabMat);
+    slab.position.set(0, 1.21, 1.5);
+    slab.castShadow = true;
+    slab.receiveShadow = true;
+    this.group.add(slab);
+
+    // Glass Sneeze Guard Partition (MeshPhysicalMaterial with transmission)
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: 0xe0f7fa,
+      transmission: 0.92,
+      opacity: 1.0,
+      transparent: true,
+      roughness: 0.08,
+      ior: 1.52,
+    });
+    // Left and right sneeze guards leaving 1.2m service gap in center
+    const glassPanelGeo = new THREE.BoxGeometry(2.4, 0.75, 0.06);
+    const leftGlass = new THREE.Mesh(glassPanelGeo, glassMat);
+    leftGlass.position.set(-1.8, 1.645, 1.5);
+    this.group.add(leftGlass);
+
+    const rightGlass = new THREE.Mesh(glassPanelGeo, glassMat);
+    rightGlass.position.set(1.8, 1.645, 1.5);
+    this.group.add(rightGlass);
 
     // Grounded contact shadows beneath counter
     for (const offset of [-2.6, 0, 2.6]) {
@@ -215,21 +255,21 @@ export class ArcadeScene {
     const regGeo = new THREE.BoxGeometry(0.8, 0.6, 0.7);
     const regMat = new THREE.MeshStandardMaterial({ color: 0x1f2421, roughness: 0.35, metalness: 0.2 });
     const register = new THREE.Mesh(regGeo, regMat);
-    register.position.set(0, 1.4, 1.5);
+    register.position.set(0, 1.55, 1.5);
     register.castShadow = true;
     this.group.add(register);
 
-    // Green Cross Neon Emblem on back wall
+    // Green Cross Neon Emblem on back wall with luminous glow
     const crossMat = new THREE.MeshBasicMaterial({ color: 0x00e676 });
     const crossV = new THREE.Mesh(
-      new THREE.BoxGeometry(0.4, 1.4, 0.1),
+      new THREE.BoxGeometry(0.4, 1.4, 0.12),
       crossMat
     );
     crossV.position.set(0, 3.2, -8.95);
     this.group.add(crossV);
 
     const crossH = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 0.4, 0.1),
+      new THREE.BoxGeometry(1.4, 0.4, 0.12),
       crossMat
     );
     crossH.position.set(0, 3.2, -8.95);

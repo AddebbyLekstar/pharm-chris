@@ -1,7 +1,21 @@
 import * as THREE from 'three';
 import { Customer } from '../../sim/types';
 
-export type CustomerAnimState = 'idle' | 'talking' | 'shocked' | 'happy' | 'paying' | 'taking';
+export type CustomerAnimState = 'idle' | 'walking' | 'talking' | 'shocked' | 'happy' | 'paying' | 'taking';
+export type CustomerAIState =
+  | 'outside'
+  | 'entering'
+  | 'walking_to_shelf'
+  | 'browsing'
+  | 'picking'
+  | 'out_of_stock'
+  | 'walking_to_queue'
+  | 'in_queue'
+  | 'at_counter'
+  | 'paying'
+  | 'taking'
+  | 'leaving'
+  | 'exited';
 
 export class Customer3D {
   public group: THREE.Group;
@@ -10,12 +24,26 @@ export class Customer3D {
   public torsoMesh: THREE.Mesh;
   public leftArm: THREE.Group;
   public rightArm: THREE.Group;
+  public leftLeg!: THREE.Mesh;
+  public rightLeg!: THREE.Mesh;
   public speechBubbleCanvas: HTMLCanvasElement;
   public speechBubbleTexture: THREE.CanvasTexture;
   public speechSprite: THREE.Sprite;
   public animState: CustomerAnimState = 'idle';
+  public aiState: CustomerAIState = 'outside';
   private animTime = 0;
   public targetY = 0;
+
+  // Pathfinding & Autonomous Movement
+  public targetPos: THREE.Vector3 | null = null;
+  public waypointQueue: THREE.Vector3[] = [];
+  public onArrival: (() => void) | null = null;
+  public walkSpeed = 2.2;
+  public isWalking = false;
+  public queueIndex = -1;
+  public carriedProductMesh: THREE.Group | null = null;
+  public counterItemMesh: THREE.Mesh | null = null;
+  public requestedProductId: string = '';
 
   constructor(customer: Customer) {
     this.customer = customer;
@@ -79,6 +107,20 @@ export class Customer3D {
     this.group.add(this.leftArm);
     this.group.add(this.rightArm);
 
+    // Legs (walking animation)
+    const legGeom = new THREE.CylinderGeometry(0.16, 0.13, 1.1, 12);
+    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1f2326, roughness: 0.8 });
+    this.leftLeg = new THREE.Mesh(legGeom, pantsMat);
+    this.leftLeg.position.set(-0.25, 0.55, 0);
+    this.leftLeg.castShadow = true;
+    this.group.add(this.leftLeg);
+
+    this.rightLeg = new THREE.Mesh(legGeom, pantsMat);
+    this.rightLeg.position.set(0.25, 0.55, 0);
+    this.rightLeg.castShadow = true;
+    this.group.add(this.rightLeg);
+
+    this.requestedProductId = (customer.matchedProductIds && customer.matchedProductIds[0]) || '';
     this.updateSpeechBubble(customer.initialQuote);
     this.group.userData = { isCustomer: true, customerInstance: this };
   }
@@ -277,6 +319,167 @@ export class Customer3D {
     this.speechBubbleTexture.needsUpdate = true;
   }
 
+  public walkTo(target: THREE.Vector3, onArrival?: () => void): void {
+    this.targetPos = target.clone();
+    this.targetPos.y = this.group.position.y;
+    this.onArrival = onArrival || null;
+    this.isWalking = true;
+    this.animState = 'walking';
+  }
+
+  public setWaypoints(points: THREE.Vector3[], onComplete?: () => void): void {
+    if (points.length === 0) return;
+    this.waypointQueue = points.map((p) => {
+      const v = p.clone();
+      v.y = this.group.position.y;
+      return v;
+    });
+    const first = this.waypointQueue.shift()!;
+    this.walkTo(first, () => {
+      if (this.waypointQueue.length > 0) {
+        const nextPts = [...this.waypointQueue];
+        this.waypointQueue = [];
+        this.setWaypoints(nextPts, onComplete);
+      } else {
+        if (onComplete) onComplete();
+      }
+    });
+  }
+
+  public showThoughtBubble(text: string, isUnhappy = false): void {
+    const ctx = this.speechBubbleCanvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 512, 180);
+
+    ctx.fillStyle = isUnhappy ? '#FFF0F0' : '#FFFFFF';
+    ctx.fillRect(16, 12, 480, 140);
+    ctx.strokeStyle = isUnhappy ? '#D13438' : '#121113';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(16, 12, 480, 140);
+
+    ctx.beginPath();
+    ctx.moveTo(230, 152);
+    ctx.lineTo(256, 178);
+    ctx.lineTo(282, 152);
+    ctx.fillStyle = isUnhappy ? '#FFF0F0' : '#FFFFFF';
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = isUnhappy ? '#D13438' : '#329663';
+    ctx.font = 'bold 20px sans-serif';
+    const title = isUnhappy ? `⚠️ ${this.customer.name.toUpperCase()} (OUT OF STOCK):` : `${this.customer.name.toUpperCase()}:`;
+    ctx.fillText(title, 36, 42);
+
+    ctx.fillStyle = isUnhappy ? '#8C1111' : '#111111';
+    ctx.font = '900 20px sans-serif';
+
+    const words = text.split(' ');
+    let line1 = '';
+    let line2 = '';
+    for (const w of words) {
+      if ((line1 + ' ' + w).length < 32) {
+        line1 += (line1 ? ' ' : '') + w;
+      } else {
+        line2 += (line2 ? ' ' : '') + w;
+      }
+    }
+    ctx.fillText(line1, 36, 80);
+    if (line2) ctx.fillText(line2, 36, 115);
+
+    this.speechBubbleTexture.needsUpdate = true;
+  }
+
+  public attachCarriedProduct(productName: string, color: number = 0x2e7d32): void {
+    this.removeCarriedProduct();
+    const pGroup = new THREE.Group();
+    const geom = new THREE.BoxGeometry(0.28, 0.18, 0.12);
+    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.castShadow = true;
+    pGroup.add(mesh);
+
+    // Label on carton
+    const lCanv = document.createElement('canvas');
+    lCanv.width = 128;
+    lCanv.height = 64;
+    const lCtx = lCanv.getContext('2d')!;
+    lCtx.fillStyle = '#ffffff';
+    lCtx.fillRect(0, 0, 128, 64);
+    lCtx.fillStyle = '#111111';
+    lCtx.font = 'bold 16px sans-serif';
+    lCtx.textAlign = 'center';
+    lCtx.fillText(productName.substring(0, 10), 64, 38);
+    const lMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.25, 0.12),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(lCanv) })
+    );
+    lMesh.position.z = 0.062;
+    pGroup.add(lMesh);
+
+    pGroup.position.set(0, -0.65, 0.25);
+    this.rightArm.add(pGroup);
+    this.carriedProductMesh = pGroup;
+  }
+
+  public removeCarriedProduct(): void {
+    if (this.carriedProductMesh) {
+      this.rightArm.remove(this.carriedProductMesh);
+      this.carriedProductMesh = null;
+    }
+  }
+
+  public placeItemOnCounter(parentGroup: THREE.Group): THREE.Mesh {
+    this.removeCarriedProduct();
+    const itemGeom = new THREE.BoxGeometry(0.35, 0.2, 0.22);
+    const itemMat = new THREE.MeshStandardMaterial({
+      color: 0x1b5e3c,
+      roughness: 0.4,
+    });
+    const counterItem = new THREE.Mesh(itemGeom, itemMat);
+    counterItem.position.set(-0.2, 1.16, 0.25);
+    counterItem.castShadow = true;
+    counterItem.receiveShadow = true;
+
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 256;
+    labelCanvas.height = 128;
+    const ctx = labelCanvas.getContext('2d')!;
+    ctx.fillStyle = '#f8fdf9';
+    ctx.fillRect(0, 0, 256, 128);
+    ctx.fillStyle = '#1b5e3c';
+    ctx.fillRect(0, 0, 256, 30);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('MEDICINE PACK', 128, 22);
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText(this.customer.matchedProductIds[0] || 'PHARM PRODUCT', 128, 65);
+    // Barcode
+    ctx.fillStyle = '#000000';
+    for (let x = 30; x < 226; x += 6) {
+      ctx.fillRect(x, 85, (x % 12 === 0) ? 4 : 2, 35);
+    }
+    const labelTex = new THREE.CanvasTexture(labelCanvas);
+    const labelMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.32, 0.18),
+      new THREE.MeshBasicMaterial({ map: labelTex })
+    );
+    labelMesh.position.y = 0.102;
+    labelMesh.rotation.x = -Math.PI / 2;
+    counterItem.add(labelMesh);
+
+    counterItem.userData = {
+      interactionType: 'counter_item',
+      promptText: '[Click] Aim Barcode Scanner to Scan Item',
+      customer: this.customer,
+      customerInstance: this,
+    };
+
+    parentGroup.add(counterItem);
+    this.counterItemMesh = counterItem;
+    return counterItem;
+  }
+
   public setState(state: CustomerAnimState): void {
     this.animState = state;
   }
@@ -284,10 +487,55 @@ export class Customer3D {
   public update(delta: number): void {
     this.animTime += delta;
 
-    // Breathing idle bob
-    const breath = Math.sin(this.animTime * 2.5) * 0.03;
-    this.headMesh.position.y = 2.65 + breath;
-    this.torsoMesh.position.y = 1.35 + breath * 0.5;
+    // Pathfinding / Autonomous Movement
+    if (this.targetPos) {
+      const curPos = this.group.position;
+      const dx = this.targetPos.x - curPos.x;
+      const dz = this.targetPos.z - curPos.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+
+      if (dist > 0.08) {
+        this.isWalking = true;
+        this.animState = 'walking';
+        const moveDist = Math.min(dist, this.walkSpeed * delta);
+        curPos.x += (dx / dist) * moveDist;
+        curPos.z += (dz / dist) * moveDist;
+
+        // Face movement direction
+        const targetAngle = Math.atan2(dx, dz);
+        this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, targetAngle, Math.min(1, delta * 8));
+      } else {
+        // Reached destination waypoint
+        curPos.x = this.targetPos.x;
+        curPos.z = this.targetPos.z;
+        this.targetPos = null;
+        this.isWalking = false;
+        this.animState = 'idle';
+
+        if (this.onArrival) {
+          const cb = this.onArrival;
+          this.onArrival = null;
+          cb();
+        }
+      }
+    }
+
+    // Walking leg & arm swing
+    if (this.isWalking) {
+      const walkPhase = this.animTime * 9;
+      this.leftLeg.rotation.x = Math.sin(walkPhase) * 0.55;
+      this.rightLeg.rotation.x = -Math.sin(walkPhase) * 0.55;
+      this.leftArm.rotation.x = -Math.sin(walkPhase) * 0.45;
+      this.rightArm.rotation.x = Math.sin(walkPhase) * 0.45;
+      this.torsoMesh.position.y = 1.35 + Math.abs(Math.sin(walkPhase * 2)) * 0.04;
+    } else {
+      this.leftLeg.rotation.x = THREE.MathUtils.lerp(this.leftLeg.rotation.x, 0, delta * 6);
+      this.rightLeg.rotation.x = THREE.MathUtils.lerp(this.rightLeg.rotation.x, 0, delta * 6);
+      // Breathing idle bob
+      const breath = Math.sin(this.animTime * 2.5) * 0.03;
+      this.headMesh.position.y = 2.65 + breath;
+      this.torsoMesh.position.y = 1.35 + breath * 0.5;
+    }
 
     // Expression gestures
     if (this.animState === 'talking') {
@@ -314,7 +562,7 @@ export class Customer3D {
       // Reaching both hands forward to grab medication box
       this.leftArm.rotation.x = -1.3;
       this.rightArm.rotation.x = -1.3;
-    } else {
+    } else if (!this.isWalking) {
       // Idle
       this.leftArm.rotation.x = THREE.MathUtils.lerp(this.leftArm.rotation.x, 0, delta * 4);
       this.rightArm.rotation.x = THREE.MathUtils.lerp(this.rightArm.rotation.x, 0, delta * 4);

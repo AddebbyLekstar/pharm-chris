@@ -1,0 +1,96 @@
+{
+  "url": "https://pharm-chris.vercel.app",
+  "timestamp": "2026-11-05T15:19:51.693Z",
+  "steps": {
+    "step1": {
+      "fps": 9,
+      "inputLatencyMs": 129.7,
+      "title": "Pharm Chris — 3D Arcade Idle Pharmacy",
+      "initialPos": {
+        "x": 0,
+        "y": 0,
+        "z": -0.55
+      },
+      "initialQueueLength": 2,
+      "dialogueOpen": true,
+      "initialCash": 150000
+    },
+    "step2": {
+      "stackCount": 5,
+      "maxCapacity": 5,
+      "playerPos": {
+        "x": 0,
+        "z": -6.325000000000002
+      },
+      "topItem": "Stomacare Suspension",
+      "screenshot": "01_dock_pickup.png"
+    },
+    "step3": {
+      "shelfInitialStock": {
+        "antimalarial": 9,
+        "analgesic": 37,
+        "antibiotic": 9,
+        "cold_chain": 9
+      },
+      "shelfFinalStock": {
+        "antimalarial": 10,
+        "analgesic": 41,
+        "antibiotic": 9,
+        "cold_chain": 9,
+        "remainingStack": 0
+      },
+      "screenshot": "02_shelf_restock.png"
+    },
+    "step4": {
+      "counterStatus": {
+        "activeCashDrops": 0,
+        "queueLength": 2,
+        "dialogueOpen": true,
+        "playerPos": {
+          "x": -0.10348327639881172,
+          "y": 0,
+          "z": 0.2041226211722218
+        }
+      },
+      "dialogueHandled": true,
+      "screenshot": "03_counter_serve.png"
+    },
+    "step5": {
+      "cashBeforeCollection": 151200,
+      "cashAfterCollection": 151200,
+      "upgradeState": {
+        "id": "upgrade_stack",
+        "title": "+2 Stack Capacity",
+        "cost": 3000,
+        "progress": 1,
+        "isUnlocked": true,
+        "maxCapacity": 7,
+        "cash": 148200
+      },
+      "screenshot": "04_upgrade_purchased.png"
+    }
+  },
+  "metrics": {
+    "fps": 9,
+    "inputLatencyMs": 129.7,
+    "cashEarned": 0,
+    "upgradesBought": [
+      "+2 Stack Capacity"
+    ],
+    "finalStackCapacity": 7,
+    "mechanicsVerified": [
+      "3D Viewport & Isometric Camera Rendering",
+      "Delivery Dock Box Pickup & Stack Carrying (+5 boxes)",
+      "Shelf Restocking & Stock Transfer (Antimalarial & Analgesic)",
+      "Counter Cashier Customer Service & Story Dialogue Modal Handling",
+      "3D Cash Drops & Proximity Magnetic Collection",
+      "Floor Upgrade Pad Charge Interaction & Particle Juice (+2 Stack Capacity Unlocked)"
+    ]
+  },
+  "logs": [
+    {
+      "type": "warning",
+      "text": "THREE.WebGLShadowMap: PCFSoftShadowMap has been removed. Using PCFShadowMap instead."
+    }
+  ]
+}

@@ -73,14 +73,20 @@ export class PharmacyShelves3D {
   }
 
   private buildShelvingUnits(): void {
-    const rackMat = new THREE.MeshStandardMaterial({
-      color: 0x423832, // Dark walnut wood shelving
-      roughness: 0.6,
+    // Spec 2.3: Powder-coated forest teal steel uprights + warm wood shelves
+    const tealSteelMat = new THREE.MeshStandardMaterial({
+      color: 0x1b4d3e,
+      roughness: 0.40,
     });
+    const woodShelfMat = new THREE.MeshStandardMaterial({
+      color: 0x5d4037,
+      roughness: 0.70,
+    });
+    // Spec 2.3: Cold Chain Refrigerator Bay (0xDDEEFF, metalness 0.25, roughness 0.25)
     const fridgeMat = new THREE.MeshStandardMaterial({
       color: 0xddeeff,
-      metalness: 0.2,
-      roughness: 0.3,
+      metalness: 0.25,
+      roughness: 0.25,
     });
 
     for (const conf of this.shelfConfigs) {
@@ -88,12 +94,27 @@ export class PharmacyShelves3D {
       shelfBay.position.copy(conf.position);
 
       const isFridge = conf.category === 'cold_chain';
-      const bodyGeo = new THREE.BoxGeometry(1.6, 2.6, 1.0);
-      const bodyMesh = new THREE.Mesh(bodyGeo, isFridge ? fridgeMat : rackMat);
+      const bodyGeo = new THREE.BoxGeometry(1.6, 2.6, 0.85);
+      const bodyMesh = new THREE.Mesh(bodyGeo, isFridge ? fridgeMat : tealSteelMat);
       bodyMesh.position.y = 1.3;
       bodyMesh.castShadow = true;
       bodyMesh.receiveShadow = true;
       shelfBay.add(bodyMesh);
+
+      // Add warm wood tiers if not fridge
+      if (!isFridge) {
+        for (let tier = 0; tier < 4; tier++) {
+          const tierGeo = new THREE.BoxGeometry(1.5, 0.05, 0.8);
+          const tierMesh = new THREE.Mesh(tierGeo, woodShelfMat);
+          tierMesh.position.set(0, 0.45 + tier * 0.55, 0);
+          shelfBay.add(tierMesh);
+        }
+      } else {
+        // Spec 2.3: Cold chain internal blue LED backlight
+        const fridgeLight = new THREE.PointLight(0x00e5ff, 0.8, 4.0, 1.2);
+        fridgeLight.position.set(0, 1.4, conf.position.x < 0 ? 0.4 : -0.4);
+        shelfBay.add(fridgeLight);
+      }
 
       // Grounded contact shadow beneath shelf bay
       const shelfShadow = ArcadeScene.createContactShadow(0.85, 0.35);

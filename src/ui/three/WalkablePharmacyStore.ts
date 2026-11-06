@@ -3,6 +3,7 @@ import { Product, Customer } from '../../sim/types';
 import { ProductBox3D } from './ProductBox3D';
 import { CashRegister3D } from './CashRegister3D';
 import { Customer3D } from './Customer3D';
+import { DeliveryCrate3D } from './DeliveryCrate3D';
 
 export interface ShelfSlot3D {
   id: string;
@@ -10,6 +11,13 @@ export interface ShelfSlot3D {
   rotation: THREE.Euler;
   category: string;
   currentProduct?: ProductBox3D;
+  priceTagMesh?: THREE.Mesh;
+  priceTagCanvas?: HTMLCanvasElement;
+  priceTagTexture?: THREE.CanvasTexture;
+  slotMesh?: THREE.Mesh;
+  wholesaleCost?: number;
+  retailPrice?: number;
+  stockCount?: number;
 }
 
 export class WalkablePharmacyStore {
@@ -30,6 +38,9 @@ export class WalkablePharmacyStore {
   public ledgerDeskMesh: THREE.Mesh;
   public deliveryPalletMesh: THREE.Mesh;
   public deliveryCrateGroup?: THREE.Group;
+  public deliveryCrateInstance?: DeliveryCrate3D;
+  public dumpsterGroup: THREE.Group;
+  public managementPCGroup: THREE.Group;
 
   private fanSpeed = 3.6;
   private shutterTargetY = 2.1;
@@ -52,12 +63,15 @@ export class WalkablePharmacyStore {
     this.cashRegister.group.rotation.y = -Math.PI / 12;
     this.group.add(this.cashRegister.group);
 
-    // Mark register as interactable
+    // Mark register and subcomponents as interactable
     this.cashRegister.group.userData = {
       interactionType: 'register',
-      promptText: '[E] Open Cash Register',
+      promptText: '[E] Open Cash Register / Settle Transaction',
     };
     this.interactables.push(this.cashRegister.group);
+    this.interactables.push(this.cashRegister.scannerGroup);
+    this.interactables.push(this.cashRegister.posGroup);
+    this.cashRegister.billCompartments.forEach((b) => this.interactables.push(b));
 
     // 4. Multi-tier Walkable Shelves
     this.buildShelvingUnits();
@@ -77,6 +91,12 @@ export class WalkablePharmacyStore {
 
     // 8. Framed PCN License
     this.buildFramedLicense();
+
+    // 9. Exterior Dumpster at X=-6, Z=6.5
+    this.dumpsterGroup = this.buildExteriorDumpster();
+
+    // 10. In-Store Management PC Desk in back corner
+    this.managementPCGroup = this.buildManagementPCDesk();
   }
 
   private buildArchitecture(): THREE.Mesh {
@@ -315,16 +335,89 @@ export class WalkablePharmacyStore {
       for (let s = -3.6; s <= 3.6; s += 0.8) {
         const slotId = `slot_${i}_${s.toFixed(1)}`;
         const worldPos = new THREE.Vector3(s, y + 0.18, -5.25);
-        this.shelfSlots.push({
+
+        // 3D Shelf Price Tag mounted on shelf front lip
+        const tagCanvas = document.createElement('canvas');
+        tagCanvas.width = 160;
+        tagCanvas.height = 64;
+        const tagTex = new THREE.CanvasTexture(tagCanvas);
+        tagTex.colorSpace = THREE.SRGBColorSpace;
+        const tagMat = new THREE.MeshBasicMaterial({ map: tagTex });
+        const tagMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.08), tagMat);
+        tagMesh.position.set(s, y + 0.04, 0.305);
+        backShelfGroup.add(tagMesh);
+
+        // Invisible bounding slot mesh for raycasting [E] to stock cartons
+        const slotGeom = new THREE.BoxGeometry(0.5, 0.35, 0.4);
+        const slotMat = new THREE.MeshBasicMaterial({ visible: false });
+        const slotMesh = new THREE.Mesh(slotGeom, slotMat);
+        slotMesh.position.copy(worldPos);
+
+        const slotObj: ShelfSlot3D = {
           id: slotId,
           position: worldPos,
           rotation: new THREE.Euler(0, 0, 0),
           category: categories[i],
-        });
+          priceTagMesh: tagMesh,
+          priceTagCanvas: tagCanvas,
+          priceTagTexture: tagTex,
+          slotMesh: slotMesh,
+          wholesaleCost: 0,
+          retailPrice: 0,
+          stockCount: 0,
+        };
+
+        slotMesh.userData = {
+          interactionType: 'shelf_slot',
+          promptText: '[E] Stock Carton on Shelf',
+          slot: slotObj,
+        };
+        this.interactables.push(slotMesh);
+        this.group.add(slotMesh);
+        this.shelfSlots.push(slotObj);
+
+        this.updateShelfPriceTag(slotObj);
       }
     }
 
     this.group.add(backShelfGroup);
+  }
+
+  public updateShelfPriceTag(slot: ShelfSlot3D): void {
+    if (!slot.priceTagCanvas || !slot.priceTagTexture) return;
+    const ctx = slot.priceTagCanvas.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 160, 64);
+    ctx.strokeStyle = '#222222';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, 158, 62);
+
+    // Green header bar
+    ctx.fillStyle = '#1b5e3c';
+    ctx.fillRect(1, 1, 158, 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    const prodName = slot.currentProduct ? slot.currentProduct.product.name.substring(0, 14) : 'EMPTY SLOT';
+    ctx.fillText(prodName, 80, 14);
+
+    // Wholesale Cost & Retail Price
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#555555';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(`COST: ₦${slot.wholesaleCost || 0}`, 6, 32);
+
+    ctx.fillStyle = '#1b5e3c';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(`SELL: ₦${slot.retailPrice || 0}`, 6, 48);
+
+    // Stock count indicator
+    ctx.fillStyle = (slot.stockCount || 0) > 0 ? '#0d47a1' : '#c62828';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`QTY: ${slot.stockCount || 0}`, 154, 52);
+
+    slot.priceTagTexture.needsUpdate = true;
   }
 
   private buildLedgerDesk(): THREE.Mesh {
@@ -375,36 +468,160 @@ export class WalkablePharmacyStore {
 
   private buildDeliveryZone(): THREE.Mesh {
     const palletGroup = new THREE.Group();
-    palletGroup.position.set(3.4, 0, 3.8);
+    // Curb delivery pallet at Z=7.5
+    palletGroup.position.set(0, 0, 7.5);
 
     // Wooden Pallet
     const woodPalletMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.8 });
-    const pallet = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.14, 1.4), woodPalletMat);
-    pallet.position.y = 0.07;
+    const pallet = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.16, 1.6), woodPalletMat);
+    pallet.position.y = 0.08;
     pallet.receiveShadow = true;
     palletGroup.add(pallet);
 
-    // Sign on wall: "DELIVERY RECEIVING ZONE"
-    const signCanvas = document.createElement('canvas');
-    signCanvas.width = 256;
-    signCanvas.height = 64;
-    const sCtx = signCanvas.getContext('2d')!;
-    sCtx.fillStyle = '#D49826';
-    sCtx.fillRect(0, 0, 256, 64);
-    sCtx.fillStyle = '#000000';
-    sCtx.font = 'bold 16px sans-serif';
-    sCtx.textAlign = 'center';
-    sCtx.fillText('DELIVERIES & RESTOCK', 128, 40);
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.2, 0.3),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(signCanvas) })
-    );
-    sign.rotation.y = -Math.PI / 2;
-    sign.position.set(4.98, 1.6, 3.8);
-    this.group.add(sign);
+    // Pallet wood slats
+    for (let i = -0.65; i <= 0.65; i += 0.32) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.03, 0.18), woodPalletMat);
+      slat.position.set(0, 0.17, i);
+      palletGroup.add(slat);
+    }
+
+    pallet.userData = {
+      interactionType: 'curb_pallet',
+      promptText: 'Curb Delivery Receiving Pallet (Z=7.5)',
+    };
+    this.interactables.push(pallet);
 
     this.group.add(palletGroup);
     return pallet;
+  }
+
+  private buildExteriorDumpster(): THREE.Group {
+    const dumpsterGroup = new THREE.Group();
+    // Exterior dumpster at X=-6, Z=6.5
+    dumpsterGroup.position.set(-6.0, 0, 6.5);
+
+    // Large metal dumpster body
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x1b3b22,
+      roughness: 0.55,
+      metalness: 0.65,
+    });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 1.3), metalMat);
+    body.position.y = 0.55;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    dumpsterGroup.add(body);
+
+    // Heavy sloped metal lid
+    const lidMat = new THREE.MeshStandardMaterial({
+      color: 0x111111,
+      roughness: 0.7,
+      metalness: 0.4,
+    });
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.08, 1.35), lidMat);
+    lid.position.set(0, 1.14, -0.05);
+    lid.rotation.x = -Math.PI / 8;
+    dumpsterGroup.add(lid);
+
+    // Front trash label
+    const stencilCanvas = document.createElement('canvas');
+    stencilCanvas.width = 256;
+    stencilCanvas.height = 64;
+    const sCtx = stencilCanvas.getContext('2d')!;
+    sCtx.fillStyle = '#1b3b22';
+    sCtx.fillRect(0, 0, 256, 64);
+    sCtx.fillStyle = '#ffffff';
+    sCtx.font = 'bold 22px monospace';
+    sCtx.textAlign = 'center';
+    sCtx.fillText('COMMUNITY DUMPSTER', 128, 40);
+    const stencilTex = new THREE.CanvasTexture(stencilCanvas);
+    const stencil = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.3), new THREE.MeshBasicMaterial({ map: stencilTex }));
+    stencil.position.set(0, 0.7, 0.66);
+    dumpsterGroup.add(stencil);
+
+    dumpsterGroup.userData = {
+      interactionType: 'dumpster',
+      promptText: '[E] Throw Empty Crate into Dumpster',
+    };
+    this.interactables.push(dumpsterGroup);
+    this.group.add(dumpsterGroup);
+    return dumpsterGroup;
+  }
+
+  private buildManagementPCDesk(): THREE.Group {
+    const pcDeskGroup = new THREE.Group();
+    // Back corner PC desk
+    pcDeskGroup.position.set(3.6, 0, -4.8);
+
+    const deskMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.7 });
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.0, 1.0), deskMat);
+    desk.position.y = 0.5;
+    desk.castShadow = true;
+    desk.receiveShadow = true;
+    pcDeskGroup.add(desk);
+
+    // LCD Monitor
+    const standGeom = new THREE.CylinderGeometry(0.04, 0.08, 0.25, 12);
+    const plasticMat = new THREE.MeshStandardMaterial({ color: 0x1f2326, roughness: 0.5 });
+    const stand = new THREE.Mesh(standGeom, plasticMat);
+    stand.position.set(0, 1.12, 0);
+    pcDeskGroup.add(stand);
+
+    const monitorGeom = new THREE.BoxGeometry(0.85, 0.55, 0.06);
+    const monitor = new THREE.Mesh(monitorGeom, plasticMat);
+    monitor.position.set(0, 1.45, 0);
+    pcDeskGroup.add(monitor);
+
+    // Glowing monitor screen
+    const screenCanvas = document.createElement('canvas');
+    screenCanvas.width = 256;
+    screenCanvas.height = 160;
+    const sCtx = screenCanvas.getContext('2d')!;
+    sCtx.fillStyle = '#081f3d';
+    sCtx.fillRect(0, 0, 256, 160);
+    sCtx.fillStyle = '#00ffcc';
+    sCtx.font = 'bold 18px sans-serif';
+    sCtx.textAlign = 'center';
+    sCtx.fillText('PHARMASUPPLY B2B', 128, 38);
+    sCtx.fillStyle = '#ffffff';
+    sCtx.font = '13px monospace';
+    sCtx.fillText('DEBT: ₦4,200,000', 128, 75);
+    sCtx.fillStyle = '#ffd700';
+    sCtx.fillText('[E] WHOLESALE ORDERS', 128, 120);
+    const screenTex = new THREE.CanvasTexture(screenCanvas);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshBasicMaterial({ map: screenTex }));
+    screen.position.set(0, 1.45, 0.035);
+    screen.rotation.y = Math.PI;
+    pcDeskGroup.add(screen);
+
+    // Keyboard & Mouse
+    const kb = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.02, 0.18), plasticMat);
+    kb.position.set(0, 1.02, 0.28);
+    pcDeskGroup.add(kb);
+
+    const mouse = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.03, 0.12), plasticMat);
+    mouse.position.set(0.35, 1.02, 0.28);
+    pcDeskGroup.add(mouse);
+
+    // PC Tower
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.6, 0.5), plasticMat);
+    tower.position.set(0.65, 0.3, 0);
+    pcDeskGroup.add(tower);
+
+    // User data for interaction
+    desk.userData = {
+      interactionType: 'management_pc',
+      promptText: '[E] Open In-Store Management PC (PharmaSupply & Debt)',
+    };
+    monitor.userData = {
+      interactionType: 'management_pc',
+      promptText: '[E] Open In-Store Management PC (PharmaSupply & Debt)',
+    };
+    this.interactables.push(desk);
+    this.interactables.push(monitor);
+
+    this.group.add(pcDeskGroup);
+    return pcDeskGroup;
   }
 
   private buildCeilingFan(): THREE.Group {
@@ -514,39 +731,21 @@ export class WalkablePharmacyStore {
     return this.shutterOpen;
   }
 
-  public spawnDeliveryCrate(batchNumber: string, isTampered: boolean): THREE.Group {
-    if (this.deliveryCrateGroup) {
-      this.group.remove(this.deliveryCrateGroup);
-      const idx = this.interactables.indexOf(this.deliveryCrateGroup);
+  public spawnDeliveryCrate(product: Product, totalItems: number = 8): DeliveryCrate3D {
+    if (this.deliveryCrateInstance) {
+      this.group.remove(this.deliveryCrateInstance.group);
+      const idx = this.interactables.indexOf(this.deliveryCrateInstance.group);
       if (idx !== -1) this.interactables.splice(idx, 1);
     }
 
-    const crate = new THREE.Group();
-    crate.position.set(3.4, 0.45, 3.8);
+    const crate = new DeliveryCrate3D(product, totalItems);
+    // Curb delivery pallet at Z=7.5
+    crate.group.position.set(0, 0.16, 7.5);
 
-    const crateMat = new THREE.MeshStandardMaterial({ color: 0x8d6e63, roughness: 0.85 });
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.8), crateMat);
-    box.castShadow = true;
-    crate.add(box);
-
-    // Tamper evident tape or Agency hologram
-    const tapeMat = new THREE.MeshStandardMaterial({
-      color: isTampered ? 0xe53935 : 0x00acc1,
-      metalness: 0.6,
-    });
-    const tape = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.08, 0.82), tapeMat);
-    tape.position.y = 0.22;
-    crate.add(tape);
-
-    crate.userData = {
-      interactionType: 'delivery_crate',
-      promptText: `[E] Inspect Delivery Crate (Batch ${batchNumber})`,
-      batchNumber,
-      isTampered,
-    };
-    this.interactables.push(crate);
-    this.group.add(crate);
-    this.deliveryCrateGroup = crate;
+    this.group.add(crate.group);
+    this.interactables.push(crate.group);
+    this.deliveryCrateInstance = crate;
+    this.deliveryCrateGroup = crate.group;
     return crate;
   }
 
@@ -597,6 +796,10 @@ export class WalkablePharmacyStore {
       this.interactables.push(box.group);
       this.group.add(box.group);
       slot.currentProduct = box;
+      slot.wholesaleCost = prd.baseCost;
+      slot.retailPrice = prd.baseRetail;
+      slot.stockCount = 1;
+      this.updateShelfPriceTag(slot);
       boxes.push(box);
     }
     return boxes;

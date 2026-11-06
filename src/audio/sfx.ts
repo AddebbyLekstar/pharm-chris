@@ -385,9 +385,184 @@ class RetroAudioManager {
   }
 
   /**
-   * 8-bit Coin Clink for Cash Pickup
+   * 8-bit / Metallic Coin Clink for Cash Pickup
+   * 1046.5Hz -> 1318.5Hz -> 1567.9Hz arpeggio with metallic resonance
    */
   public playCoin(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Spec 4.1: 1046.5Hz -> 1318.5Hz -> 1567.9Hz arpeggio (C6 -> E6 -> G6)
+    const notes = [1046.5, 1318.5, 1567.9];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const overtone = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const t = now + idx * 0.055;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      // Metallic high harmonic
+      overtone.type = 'triangle';
+      overtone.frequency.setValueAtTime(freq * 2.01, t);
+
+      gain.gain.setValueAtTime(0.2 - idx * 0.03, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+      osc.connect(gain);
+      overtone.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(t);
+      overtone.start(t);
+      osc.stop(t + 0.36);
+      overtone.stop(t + 0.36);
+    });
+  }
+
+  /**
+   * Procedural Footstep on Terrazzo Floor
+   * Soft leather shoe tap with micro-friction burst
+   */
+  public playFootstep(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Low click / tap
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const pitchJitter = (Math.random() - 0.5) * 30;
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(140 + pitchJitter, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.035);
+
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.linearRampToValueAtTime(0.001, now + 0.035);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.04);
+  }
+
+  /**
+   * Pill Bottle Multi-Particle Rattle
+   * Rapid cascade of micro-impacts against pharmacy plastic
+   */
+  public playPillRattle(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 5 micro-clicks cascading over 70ms
+    for (let i = 0; i < 5; i++) {
+      const t = now + i * 0.014 + (Math.random() * 0.006);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const freq = 1900 + Math.random() * 800;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.4, t + 0.018);
+
+      gain.gain.setValueAtTime(0.08 - i * 0.01, t);
+      gain.gain.linearRampToValueAtTime(0.001, t + 0.018);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.02);
+    }
+  }
+
+  /**
+   * Stack Snap & Box Placement Punch
+   * Cardboard latch with satisfying low thump
+   */
+  public playStackSnap(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // High snap click
+    const snap = ctx.createOscillator();
+    const snapGain = ctx.createGain();
+    snap.type = 'triangle';
+    snap.frequency.setValueAtTime(880, now);
+    snap.frequency.exponentialRampToValueAtTime(220, now + 0.03);
+    snapGain.gain.setValueAtTime(0.18, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+    snap.connect(snapGain);
+    snapGain.connect(ctx.destination);
+    snap.start(now);
+    snap.stop(now + 0.04);
+
+    // Low cardboard box body punch
+    const punch = ctx.createOscillator();
+    const punchGain = ctx.createGain();
+    punch.type = 'sine';
+    punch.frequency.setValueAtTime(160, now);
+    punch.frequency.exponentialRampToValueAtTime(55, now + 0.06);
+    punchGain.gain.setValueAtTime(0.24, now);
+    punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+    punch.connect(punchGain);
+    punchGain.connect(ctx.destination);
+    punch.start(now);
+    punch.stop(now + 0.07);
+  }
+
+  /**
+   * Pharmacy Entrance Door Chime
+   * Two-tone pleasant greeting chime (C6 -> G5)
+   */
+  public playDoorChime(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const tones = [
+      { freq: 1046.5, time: now },       // C6
+      { freq: 783.99, time: now + 0.16 }, // G5
+    ];
+
+    tones.forEach(({ freq, time }) => {
+      const osc = ctx.createOscillator();
+      const harmonic = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+
+      harmonic.type = 'sine';
+      harmonic.frequency.setValueAtTime(freq * 2.76, time); // Bell overtone
+
+      gain.gain.setValueAtTime(0.22, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.55);
+
+      osc.connect(gain);
+      harmonic.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(time);
+      harmonic.start(time);
+      osc.stop(time + 0.6);
+      harmonic.stop(time + 0.6);
+    });
+  }
+
+  /**
+   * Retail Barcode Scanner Laser Beep
+   */
+  public playBarcodeBeep(): void {
     if (this.isMuted) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -395,14 +570,88 @@ class RetroAudioManager {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(987.77, now); // B5
-    osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
-    gain.gain.setValueAtTime(0.22, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc.frequency.setValueAtTime(2850, now);
+    osc.frequency.setValueAtTime(3200, now + 0.02);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.35);
+    osc.stop(now + 0.075);
+  }
+
+  /**
+   * Heavy Outdoor Dumpster Lid Clang & Trash Drop
+   */
+  public playDumpsterClang(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(90, now);
+    osc.frequency.exponentialRampToValueAtTime(35, now + 0.28);
+    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.32);
+  }
+
+  public playDumpsterSlam(): void {
+    this.playDumpsterClang();
+  }
+
+  public playScannerBeep(): void {
+    this.playBarcodeBeep();
+  }
+
+  public playCrateThud(): void {
+    this.playCrateDrop();
+  }
+
+  /**
+   * Mechanical Terminal Keyboard Click
+   */
+  public playKeyboardClick(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1200 + Math.random() * 400, now);
+    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.linearRampToValueAtTime(0.001, now + 0.02);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.025);
+  }
+
+  /**
+   * Cash Drawer Slide
+   */
+  public playDrawerSlide(): void {
+    if (this.isMuted) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(350, now);
+    osc.frequency.exponentialRampToValueAtTime(180, now + 0.12);
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.linearRampToValueAtTime(0.001, now + 0.14);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.14);
   }
 
   /**

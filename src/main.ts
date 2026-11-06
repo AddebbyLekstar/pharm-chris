@@ -1423,14 +1423,95 @@ class PharmChrisUIApp {
   }
 }
 
-// Initialize application on DOM ready
-function bootstrapApp(): void {
-  const root = document.getElementById('app-root');
-  if (root) {
-    const app = new ArcadeApp(root);
-    (window as any).app = app;
-    (window as any).arcadeApp = app;
+// Initialize application on DOM ready with prominent Mode Switcher
+let currentActiveApp: ArcadeApp | FirstPersonApp | null = null;
+
+function renderModeSwitcher(activeMode: '3d' | 'arcade'): void {
+  let switcherEl = document.getElementById('sim-mode-switcher');
+  if (!switcherEl) {
+    switcherEl = document.createElement('div');
+    switcherEl.id = 'sim-mode-switcher';
+    document.body.appendChild(switcherEl);
   }
+
+  switcherEl.style.position = 'fixed';
+  switcherEl.style.top = '12px';
+  switcherEl.style.right = '12px';
+  switcherEl.style.zIndex = '999999';
+  switcherEl.style.display = 'flex';
+  switcherEl.style.gap = '8px';
+  switcherEl.style.alignItems = 'center';
+  switcherEl.style.background = 'rgba(12, 15, 13, 0.92)';
+  switcherEl.style.border = '2px solid #00ffcc';
+  switcherEl.style.borderRadius = '24px';
+  switcherEl.style.padding = '4px 8px';
+  switcherEl.style.boxShadow = '0 6px 20px rgba(0, 255, 204, 0.35)';
+  switcherEl.style.fontFamily = "'Space Grotesk', sans-serif";
+
+  switcherEl.innerHTML = `
+    <button id="btn-mode-arcade" style="background: ${activeMode === 'arcade' ? '#00ffcc' : 'transparent'}; color: ${activeMode === 'arcade' ? '#0c0f0d' : '#90a4ae'}; border: none; min-height: 44px; padding: 8px 16px; border-radius: 22px; font-weight: 800; font-size: 12px; cursor: pointer; transition: all 0.2s; text-transform: uppercase; font-family: monospace; display: flex; align-items: center; gap: 6px; touch-action: manipulation;">
+      🕹️ 3D Arcade Mode
+    </button>
+    <button id="btn-mode-3d" style="background: ${activeMode === '3d' ? '#00ffcc' : 'transparent'}; color: ${activeMode === '3d' ? '#0c0f0d' : '#90a4ae'}; border: none; min-height: 44px; padding: 8px 16px; border-radius: 22px; font-weight: 800; font-size: 12px; cursor: pointer; transition: all 0.2s; text-transform: uppercase; font-family: monospace; display: flex; align-items: center; gap: 6px; touch-action: manipulation;">
+      👁️ First-Person Mode
+    </button>
+  `;
+
+  switcherEl.querySelector('#btn-mode-3d')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    switchMode('3d');
+  });
+
+  switcherEl.querySelector('#btn-mode-arcade')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    switchMode('arcade');
+  });
+}
+
+function switchMode(mode: '3d' | 'arcade'): void {
+  const root = document.getElementById('app-root');
+  if (!root) return;
+
+  if (currentActiveApp) {
+    if ('dispose' in currentActiveApp && typeof currentActiveApp.dispose === 'function') {
+      currentActiveApp.dispose();
+    } else if ('destroy' in currentActiveApp && typeof (currentActiveApp as any).destroy === 'function') {
+      (currentActiveApp as any).destroy();
+    }
+    currentActiveApp = null;
+  }
+
+  root.innerHTML = '';
+  localStorage.setItem('pharm_chris_sim_mode', mode);
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('mode', mode);
+  window.history.replaceState({}, '', url.toString());
+
+  if (mode === '3d') {
+    const fpApp = new FirstPersonApp(root);
+    currentActiveApp = fpApp;
+    (window as any).app = fpApp;
+    (window as any).firstPersonApp = fpApp;
+  } else {
+    const arcadeApp = new ArcadeApp(root);
+    currentActiveApp = arcadeApp;
+    (window as any).app = arcadeApp;
+    (window as any).arcadeApp = arcadeApp;
+  }
+
+  renderModeSwitcher(mode);
+}
+
+function bootstrapApp(): void {
+  const params = new URLSearchParams(window.location.search);
+  const paramMode = params.get('mode');
+  const savedMode = localStorage.getItem('pharm_chris_sim_mode');
+  // Option 2 Default: 3D third-person arcade mode is the mobile-first primary landscape launcher;
+  // First-person mode is the accessible secondary toggle
+  const targetMode = (paramMode === '3d' || (savedMode === '3d' && paramMode !== 'arcade')) ? '3d' : 'arcade';
+
+  switchMode(targetMode);
 }
 
 if (document.readyState === 'loading') {
