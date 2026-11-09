@@ -313,8 +313,10 @@ export class FirstPersonPlayer {
   }
 
   private updateInteractionRaycast(interactables: THREE.Object3D[]): void {
+    if (!this.camera || !interactables) return;
     this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-    const hits = this.raycaster.intersectObjects(interactables, true);
+    const valid = interactables.filter((obj) => obj && (obj as any).layers && (obj as any).isObject3D);
+    const hits = this.raycaster.intersectObjects(valid, true);
 
     this.currentTarget = null;
 

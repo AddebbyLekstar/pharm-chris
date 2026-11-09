@@ -1437,7 +1437,7 @@ function renderModeSwitcher(activeMode: '3d' | 'arcade'): void {
   switcherEl.style.position = 'fixed';
   switcherEl.style.top = '12px';
   switcherEl.style.right = '12px';
-  switcherEl.style.zIndex = '999999';
+  switcherEl.style.zIndex = '50';
   switcherEl.style.display = 'flex';
   switcherEl.style.gap = '8px';
   switcherEl.style.alignItems = 'center';

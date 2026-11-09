@@ -182,6 +182,45 @@ export class FirstPersonApp {
 
       <!-- Modal Host Overlay for Ledger / Minigames -->
       <div class="fps-modal-overlay" id="fps-modal-host" style="display: none;"></div>
+
+      <!-- Mobile Landscape Touch Layer -->
+      <div id="fps-mobile-touch-layer" style="display: none; position: absolute; inset: 0; pointer-events: none; z-index: 45;">
+        <!-- Left Side: Movement Virtual Joystick Zone -->
+        <div id="fps-touch-zone-move" style="position: absolute; left: 0; top: 0; width: 44%; height: 100%; pointer-events: auto; touch-action: none;">
+          <div id="fps-joystick-base" style="display: none; position: fixed; width: 100px; height: 100px; margin-left: -50px; margin-top: -50px; border-radius: 50%; background: rgba(0, 255, 204, 0.15); border: 2px solid rgba(0, 255, 204, 0.5); pointer-events: none; z-index: 50;">
+            <div id="fps-joystick-knob" style="position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin-left: -22px; margin-top: -22px; border-radius: 50%; background: #00ffcc; box-shadow: 0 0 12px #00ffcc; transform: translate(-50%, -50%);"></div>
+          </div>
+        </div>
+
+        <!-- Right Side: Camera Swipe Area -->
+        <div id="fps-touch-zone-look" style="position: absolute; right: 0; top: 0; width: 56%; height: 100%; pointer-events: auto; touch-action: none;"></div>
+
+        <!-- Right Thumb Ergonomic Action Buttons -->
+        <div class="fps-mobile-action-buttons" style="position: absolute; right: 16px; bottom: 20px; display: flex; flex-direction: column; gap: 10px; pointer-events: auto; z-index: 55;">
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="btn-touch-ledger" style="min-width: 54px; min-height: 48px; border-radius: 8px; background: rgba(30, 25, 20, 0.85); border: 2px solid #8C5F10; color: #fdf6e2; font-family: 'Silkscreen', monospace; font-size: 11px; font-weight: bold; cursor: pointer; touch-action: manipulation;">📖 LEDGER</button>
+            <button id="btn-touch-drop" style="min-width: 54px; min-height: 48px; border-radius: 8px; background: rgba(40, 20, 20, 0.85); border: 2px solid #D13438; color: #ff9999; font-family: 'Silkscreen', monospace; font-size: 11px; font-weight: bold; cursor: pointer; touch-action: manipulation;">[Q] DROP</button>
+          </div>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="btn-touch-inspect" style="min-width: 54px; min-height: 48px; border-radius: 8px; background: rgba(20, 35, 45, 0.85); border: 2px solid #00a8ff; color: #a0e6ff; font-family: 'Silkscreen', monospace; font-size: 11px; font-weight: bold; cursor: pointer; touch-action: manipulation;">[F] MAS</button>
+            <button id="btn-touch-interact" style="min-width: 64px; min-height: 48px; border-radius: 8px; background: rgba(0, 50, 40, 0.85); border: 2px solid #00ffcc; color: #00ffcc; font-family: 'Silkscreen', monospace; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px rgba(0,255,204,0.3); touch-action: manipulation;">[E] ACT</button>
+          </div>
+        </div>
+
+        <!-- Cash Register Drawer Quickbar for Mobile -->
+        <div id="fps-drawer-quickbar" style="display: none; position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: rgba(12, 15, 13, 0.95); border: 2px solid #00ffcc; border-radius: 10px; padding: 10px 14px; flex-direction: column; align-items: center; gap: 8px; pointer-events: auto; z-index: 60; box-shadow: 0 8px 32px rgba(0,0,0,0.85);">
+          <div id="fps-drawer-quickbar-info" style="font-family: 'Silkscreen', monospace; font-size: 12px; color: #00ffcc; font-weight: bold;">TENDER CHANGE</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;">
+            <button class="btn-change-quick" data-denom="50" style="min-width: 44px; min-height: 44px; background: #2a2d32; border: 1px solid #555; color: #fff; border-radius: 6px; font-weight: bold; cursor: pointer; touch-action: manipulation;">₦50</button>
+            <button class="btn-change-quick" data-denom="100" style="min-width: 44px; min-height: 44px; background: #2a2d32; border: 1px solid #555; color: #fff; border-radius: 6px; font-weight: bold; cursor: pointer; touch-action: manipulation;">₦100</button>
+            <button class="btn-change-quick" data-denom="200" style="min-width: 44px; min-height: 44px; background: #2a2d32; border: 1px solid #555; color: #fff; border-radius: 6px; font-weight: bold; cursor: pointer; touch-action: manipulation;">₦200</button>
+            <button class="btn-change-quick" data-denom="500" style="min-width: 44px; min-height: 44px; background: #2a2d32; border: 1px solid #555; color: #fff; border-radius: 6px; font-weight: bold; cursor: pointer; touch-action: manipulation;">₦500</button>
+            <button class="btn-change-quick" data-denom="1000" style="min-width: 44px; min-height: 44px; background: #2a2d32; border: 1px solid #555; color: #fff; border-radius: 6px; font-weight: bold; cursor: pointer; touch-action: manipulation;">₦1000</button>
+            <button id="btn-quick-pos" style="min-width: 50px; min-height: 44px; background: #1c6758; border: 1px solid #00ffcc; color: #fff; border-radius: 6px; font-weight: bold; cursor: pointer; touch-action: manipulation;">POS</button>
+            <button id="btn-quick-close-drawer" style="min-width: 50px; min-height: 44px; background: #D13438; border: none; color: #fff; border-radius: 6px; font-weight: bold; cursor: pointer; touch-action: manipulation;">DONE</button>
+          </div>
+        </div>
+      </div>
     `;
 
     this.crosshairEl = this.rootEl.querySelector('#fps-crosshair')!;
@@ -279,7 +318,15 @@ export class FirstPersonApp {
       }
     });
 
-    private bindTouchControls(): void {
+    // Window Resize
+    window.addEventListener('resize', () => {
+      this.player.camera.aspect = window.innerWidth / window.innerHeight;
+      this.player.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  }
+
+  private bindTouchControls(): void {
       const moveZone = this.rootEl.querySelector('#fps-touch-zone-move') as HTMLElement | null;
       const lookZone = this.rootEl.querySelector('#fps-touch-zone-look') as HTMLElement | null;
       const maxRadius = 45;
@@ -385,19 +432,30 @@ export class FirstPersonApp {
         lookZone.addEventListener('touchcancel', endLook);
       }
 
-      // Right Thumb Action Buttons
-      this.rootEl.querySelector('#btn-touch-interact')?.addEventListener('click', () => {
-        this.handleInteraction();
-      });
-      this.rootEl.querySelector('#btn-touch-inspect')?.addEventListener('click', () => {
-        this.handleInspectFoil();
-      });
-      this.rootEl.querySelector('#btn-touch-drop')?.addEventListener('click', () => {
-        this.handlePutBack();
-      });
-      this.rootEl.querySelector('#btn-touch-ledger')?.addEventListener('click', () => {
-        this.openLedgerModal();
-      });
+    // Right Thumb Action Buttons
+    this.rootEl.querySelector('#btn-touch-interact')?.addEventListener('click', () => {
+      this.handleInteract();
+    });
+    this.rootEl.querySelector('#btn-touch-inspect')?.addEventListener('click', () => {
+      if (this.player.isInspectingHeldItem && this.currentHeldBox) {
+        if (this.currentHeldBox.product.hasMasScratchCode && !this.currentHeldBox.textureSet?.isScratched) {
+          this.currentHeldBox.scratchFoil();
+          soundFx.playFoilScratch();
+          this.showSubtitle('AGENCY MAS CODE', `Revealed Code: ${this.currentHeldBox.masCode}`, 3000);
+        } else if (this.currentHeldBox.blisterStrip) {
+          this.currentHeldBox.toggleBlisterSlide();
+          soundFx.playTap();
+        }
+      } else if (this.player.heldItem) {
+        this.player.toggleInspectHeldItem();
+      }
+    });
+    this.rootEl.querySelector('#btn-touch-drop')?.addEventListener('click', () => {
+      this.handlePutBack();
+    });
+    this.rootEl.querySelector('#btn-touch-ledger')?.addEventListener('click', () => {
+      this.toggleLedgerModal();
+    });
 
       // Drawer Quickbar Change Buttons
       const changeBtns = this.rootEl.querySelectorAll('.btn-change-quick');
@@ -425,12 +483,11 @@ export class FirstPersonApp {
       if (this.store.cashRegister.isDrawerOpen && this.changeDue > 0) {
         this.drawerQuickBarEl.style.display = 'flex';
         if (this.drawerInfoEl) {
-          const tendered = this.store.cashRegister.changeGiven;
+          const tendered = this.store.cashRegister.tenderedChange;
           this.drawerInfoEl.textContent = `GIVE CHANGE: ₦${tendered.toLocaleString()} / ₦${this.changeDue.toLocaleString()} DUE`;
         }
       } else {
         this.drawerQuickBarEl.style.display = 'none';
-      }
       }
     }
 
@@ -524,14 +581,6 @@ export class FirstPersonApp {
           }
         }, 1500);
       });
-    }
-
-    // Window Resize
-    window.addEventListener('resize', () => {
-      this.player.camera.aspect = window.innerWidth / window.innerHeight;
-      this.player.camera.updateProjectionMatrix();
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-    });
   }
 
   public startCustomerShopping(cust3D: Customer3D): void {
@@ -1027,7 +1076,7 @@ export class FirstPersonApp {
       <div class="ledger-modal-inner" style="background: #F4EBD9; color: #121113; max-width: 580px; width: 100%; padding: 24px; border: 4px solid #8C5F10; border-radius: 8px; box-shadow: 0 16px 48px rgba(0,0,0,0.9); font-family: 'Space Grotesk', sans-serif; position: relative;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #8b5a2b; padding-bottom: 8px; margin-bottom: 14px;">
           <h2 style="font-family: 'Silkscreen', monospace; font-size: 16px; margin: 0; color: #5c3a21;">📖 AUNTIE JOKE'S CREDIT & DEBT LEDGER</h2>
-          <button id="btn-close-ledger-top" style="background: #8b5a2b; color: #fdf6e2; border: none; min-height: 44px; padding: 8px 14px; cursor: pointer; font-weight: bold; border-radius: 6px; touch-action: manipulation;">✕ CLOSE</button>
+          <button id="btn-close-ledger" style="background: #8b5a2b; color: #fdf6e2; border: none; min-height: 44px; padding: 8px 14px; cursor: pointer; font-weight: bold; border-radius: 6px; touch-action: manipulation;">✕ CLOSE</button>
         </div>
         <div style="font-size: 13px; line-height: 1.6; margin-bottom: 16px;">
           <strong>LAST ENTRY &bull; 14 DAYS BEFORE DISAPPEARANCE:</strong><br>
@@ -1044,6 +1093,9 @@ export class FirstPersonApp {
       </div>
     `;
 
+    this.modalHostEl.querySelector('#btn-close-ledger')?.addEventListener('click', () => {
+      this.closeModal();
+    });
     this.modalHostEl.querySelector('#btn-close-modal')?.addEventListener('click', () => {
       this.closeModal();
     });

@@ -212,6 +212,7 @@ export class CashRegister3D {
 
   private buildPosTerminal(): void {
     const posGroup = new THREE.Group();
+    this.posGroup = posGroup;
     posGroup.name = 'pos_terminal';
     posGroup.position.set(1.4, 0.05, 0.15);
     posGroup.rotation.y = -Math.PI / 12;

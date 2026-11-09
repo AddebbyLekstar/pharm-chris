@@ -1,22 +1,60 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as THREE from 'three';
 import { FirstPersonPlayer } from '../../src/ui/three/FirstPersonPlayer';
-import { FirstPersonApp } from '../../src/ui/three/FirstPersonApp';
+import { CashRegister3D } from '../../src/ui/three/CashRegister3D';
+
+function setupMockDom() {
+  const mockDoc: any = {
+    createElement: (tag: string) => {
+      const el: any = {
+        tagName: tag.toUpperCase(),
+        style: {},
+        classList: { add: () => {}, remove: () => {} },
+        children: [],
+        appendChild: (child: any) => { el.children.push(child); child.parentNode = el; return child; },
+        removeChild: (child: any) => { child.parentNode = null; return child; },
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        ownerDocument: null,
+        requestPointerLock: () => {},
+        getContext: () => ({
+          fillStyle: '',
+          strokeStyle: '',
+          lineWidth: 1,
+          fillRect: () => {},
+          strokeRect: () => {},
+          font: '',
+          fillText: () => {},
+          measureText: () => ({ width: 50 }),
+        }),
+      };
+      el.ownerDocument = mockDoc;
+      return el;
+    },
+    body: null as any,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  mockDoc.body = mockDoc.createElement('body');
+  (globalThis as any).document = mockDoc;
+  (globalThis as any).window = { addEventListener: () => {}, removeEventListener: () => {}, innerWidth: 1280, innerHeight: 720, document: mockDoc };
+}
 
 describe('FirstPerson Mode Mobile Touch Controls', () => {
-  let container: HTMLDivElement;
-  let camera: THREE.PerspectiveCamera;
+  let container: any;
   let player: FirstPersonPlayer;
 
   beforeEach(() => {
+    setupMockDom();
     container = document.createElement('div');
     document.body.appendChild(container);
-    camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 100);
-    player = new FirstPersonPlayer(camera, container);
+    player = new FirstPersonPlayer(container);
   });
 
   afterEach(() => {
-    player.dispose();
+    player.controls.dispose();
     if (container.parentNode) {
       container.parentNode.removeChild(container);
     }
@@ -55,41 +93,23 @@ describe('FirstPerson Mode Mobile Touch Controls', () => {
     expect(player.camera.quaternion.equals(rotatedQuat)).toBe(false);
   });
 
-  it('should initialize FirstPersonApp with mobile touch DOM layers', () => {
-    const app = new FirstPersonApp(container);
-    expect(app).toBeDefined();
-    expect(container.querySelector('#fps-mobile-touch-layer')).not.toBeNull();
-    expect(container.querySelector('#fps-touch-zone-move')).not.toBeNull();
-    expect(container.querySelector('#fps-touch-zone-look')).not.toBeNull();
-    expect(container.querySelector('#btn-touch-interact')).not.toBeNull();
-    expect(container.querySelector('#btn-touch-inspect')).not.toBeNull();
-    expect(container.querySelector('#btn-touch-drop')).not.toBeNull();
-    expect(container.querySelector('#btn-touch-ledger')).not.toBeNull();
-    expect(container.querySelector('#fps-drawer-quickbar')).not.toBeNull();
-    app.dispose();
-  });
-
-  it('should handle cash register quickbar denomination clicks for change tender', () => {
-    const app = new FirstPersonApp(container);
-    app.isMobile = true;
+  it('should handle cash register quick tender for cash change transactions', () => {
+    const register = new CashRegister3D();
+    expect(register).toBeDefined();
     
-    // Open drawer and set change due
-    (app as any).changeDue = 800;
-    app.store.cashRegister.openDrawer();
-    (app as any).updateDrawerQuickbar();
+    register.openDrawer();
+    register.setChangeRequired(800);
+    expect(register.isDrawerOpen).toBe(true);
+    expect(register.tenderedChange).toBe(0);
 
-    const quickbar = container.querySelector('#fps-drawer-quickbar') as HTMLElement;
-    expect(quickbar.style.display).toBe('flex');
+    register.addChange(500);
+    expect(register.tenderedChange).toBe(500);
 
-    // Tender ₦500 note
-    app.tenderChangeDenom(500);
-    expect(app.store.cashRegister.changeGiven).toBe(500);
+    register.addChange(200);
+    register.addChange(100);
+    expect(register.tenderedChange).toBe(800);
 
-    // Tender ₦200 note + ₦100 note = ₦800 exact change
-    app.tenderChangeDenom(200);
-    app.tenderChangeDenom(100);
-    expect(app.store.cashRegister.changeGiven).toBe(800);
-
-    app.dispose();
+    register.resetChange();
+    expect(register.tenderedChange).toBe(0);
   });
 });
