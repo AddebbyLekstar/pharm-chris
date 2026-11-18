@@ -1435,28 +1435,34 @@ function renderModeSwitcher(activeMode: '3d' | 'arcade'): void {
   }
 
   // Bottom-left, clear of the HUD's cash chips, debt chip and investment drawer.
-  switcherEl.style.position = 'fixed';
-  switcherEl.style.bottom = '64px';
-  switcherEl.style.left = '10px';
-  switcherEl.style.top = 'auto';
-  switcherEl.style.right = 'auto';
-  switcherEl.style.zIndex = '30';
-  switcherEl.style.display = 'flex';
-  switcherEl.style.gap = '8px';
-  switcherEl.style.alignItems = 'center';
-  switcherEl.style.background = 'rgba(12, 15, 13, 0.92)';
-  switcherEl.style.border = '2px solid #00ffcc';
-  switcherEl.style.borderRadius = '24px';
-  switcherEl.style.padding = '4px 8px';
-  switcherEl.style.boxShadow = '0 6px 20px rgba(0, 255, 204, 0.35)';
-  switcherEl.style.fontFamily = "'Space Grotesk', sans-serif";
+  // Styling lives in a stylesheet so phones can collapse it to icon-only buttons
+  // instead of an inline-styled bar that overflows a 320px screen.
+  if (!document.getElementById('sim-mode-switcher-styles')) {
+    const style = document.createElement('style');
+    style.id = 'sim-mode-switcher-styles';
+    style.textContent = `
+      #sim-mode-switcher { position:fixed; bottom:64px; left:10px; z-index:30; display:flex; gap:8px; align-items:center;
+        background:rgba(12,15,13,0.92); border:2px solid #00ffcc; border-radius:24px; padding:4px 8px;
+        box-shadow:0 6px 20px rgba(0,255,204,0.35); font-family:'Space Grotesk',sans-serif; }
+      #sim-mode-switcher button { min-height:44px; padding:8px 16px; border:none; border-radius:22px; font-weight:800;
+        font-size:12px; cursor:pointer; transition:background 0.2s,color 0.2s; text-transform:uppercase; font-family:monospace;
+        display:flex; align-items:center; gap:6px; touch-action:manipulation; background:transparent; color:#90a4ae; }
+      #sim-mode-switcher button[aria-pressed="true"] { background:#00ffcc; color:#0c0f0d; }
+      @media (max-width: 560px) {
+        #sim-mode-switcher { bottom:12px; left:10px; gap:2px; padding:3px 5px; }
+        #sim-mode-switcher button { min-width:44px; padding:8px 10px; justify-content:center; }
+        #sim-mode-switcher .label { display:none; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   switcherEl.innerHTML = `
-    <button id="btn-mode-arcade" style="background: ${activeMode === 'arcade' ? '#00ffcc' : 'transparent'}; color: ${activeMode === 'arcade' ? '#0c0f0d' : '#90a4ae'}; border: none; min-height: 44px; padding: 8px 16px; border-radius: 22px; font-weight: 800; font-size: 12px; cursor: pointer; transition: all 0.2s; text-transform: uppercase; font-family: monospace; display: flex; align-items: center; gap: 6px; touch-action: manipulation;">
-      🕹️ 3D Arcade Mode
+    <button id="btn-mode-arcade" type="button" aria-pressed="${activeMode === 'arcade'}" aria-label="3D Arcade Mode" title="3D Arcade Mode">
+      <span aria-hidden="true">🕹️</span><span class="label">3D Arcade Mode</span>
     </button>
-    <button id="btn-mode-3d" style="background: ${activeMode === '3d' ? '#00ffcc' : 'transparent'}; color: ${activeMode === '3d' ? '#0c0f0d' : '#90a4ae'}; border: none; min-height: 44px; padding: 8px 16px; border-radius: 22px; font-weight: 800; font-size: 12px; cursor: pointer; transition: all 0.2s; text-transform: uppercase; font-family: monospace; display: flex; align-items: center; gap: 6px; touch-action: manipulation;">
-      👁️ First-Person Mode
+    <button id="btn-mode-3d" type="button" aria-pressed="${activeMode === '3d'}" aria-label="First-Person Mode" title="First-Person Mode">
+      <span aria-hidden="true">👁️</span><span class="label">First-Person Mode</span>
     </button>
   `;
 

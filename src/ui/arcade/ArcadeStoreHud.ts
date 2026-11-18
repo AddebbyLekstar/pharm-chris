@@ -96,9 +96,17 @@ export class ArcadeStoreHud {
         #pharm-objective { top:112px; font-size:0.7rem; padding:5px 10px; max-width:94vw; }
         #pharm-toasts { top:148px; }
       }
-      #pharm-hud .hint { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); background:rgba(10,16,13,0.78); border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:5px 14px; color:#c4d4cc; font-size:0.74rem; }
+      #pharm-hud .hint { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); background:rgba(10,16,13,0.78); border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:5px 14px; color:#c4d4cc; font-size:0.74rem; text-align:center; max-width:calc(100% - 240px); }
       #pharm-invest-btn { position:absolute; right:12px; bottom:12px; z-index:14; pointer-events:auto; min-height:52px; min-width:52px; padding:0 18px; border-radius:16px; background:linear-gradient(160deg,#00E676,#00b45e); color:#04160d; font-weight:900; font-size:0.9rem; border:none; box-shadow:0 8px 22px rgba(0,230,118,0.35); cursor:pointer; letter-spacing:0.04em; }
       #pharm-invest-btn .badge { display:block; font-size:0.6rem; font-weight:700; opacity:0.8; }
+      /* Phones: the hint moves above the action row instead of sitting under INVEST,
+         and the action button shrinks so the two never collide at 320-430px. */
+      @media (max-width: 560px) {
+        #pharm-hud .hint { left:12px; right:12px; bottom:76px; transform:none; max-width:none; font-size:0.66rem; padding:4px 10px; }
+        #pharm-invest-btn { padding:0 12px; font-size:0.8rem; }
+        #pharm-invest-btn .badge { font-size:0.54rem; max-width:104px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        #pharm-debug { bottom:120px; }
+      }
       #pharm-toasts { position:absolute; top:118px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; align-items:center; z-index:13; pointer-events:none; }
       #pharm-toasts .toast { background:rgba(12,20,16,0.95); border:1px solid #2f4638; border-left:4px solid #00E676; color:#eaf3ee; padding:7px 13px; border-radius:9px; font-size:0.8rem; font-weight:600; box-shadow:0 6px 18px rgba(0,0,0,0.5); animation: pharm-toast-in 0.18s ease-out; }
       @keyframes pharm-toast-in { from { opacity:0; transform:translateY(-6px);} to {opacity:1; transform:none;} }
@@ -170,6 +178,13 @@ export class ArcadeStoreHud {
     this.drawerBody = hud.querySelector('#pharm-drawer-body')!;
     this.debugEl = hud.querySelector('#pharm-debug')!;
 
+    // Touch devices get touch copy: WASD is meaningless on a phone.
+    const coarse = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
+    const hintEl = hud.querySelector('#hud-hint');
+    if (hintEl && coarse) {
+      hintEl.textContent = 'Drag to move · hold still on a zone to act';
+    }
+
     const modalHost = document.createElement('div');
     modalHost.id = 'pharm-modal-host';
     this.root.appendChild(modalHost);
@@ -212,7 +227,7 @@ export class ArcadeStoreHud {
       this.lastObjective = objective;
       const tutorial = !this.onboarding.isComplete;
       this.objectiveEl.innerHTML = tutorial
-        ? `<span>${objective}</span><button id="pharm-skip-tutorial" style="pointer-events:auto;margin-left:10px;background:#1e2f27;border:1px solid #2f4a3b;color:#cfe0d7;border-radius:9px;font-size:0.62rem;font-weight:800;padding:4px 8px;cursor:pointer;">LET ME PLAY</button>`
+        ? `<span>${objective}</span> <button id="pharm-skip-tutorial" style="pointer-events:auto;margin-left:10px;background:#1e2f27;border:1px solid #2f4a3b;color:#cfe0d7;border-radius:9px;font-size:0.62rem;font-weight:800;padding:4px 8px;cursor:pointer;">LET ME PLAY</button>`
         : `<span>${objective}</span>`;
       this.objectiveEl.querySelector('#pharm-skip-tutorial')?.addEventListener('click', () => {
         this.onboarding.skip();
@@ -245,9 +260,16 @@ export class ArcadeStoreHud {
     const hint = this.bar.querySelector('#hud-invest-hint') as HTMLElement | null;
     if (!hint) return;
     const next = this.run.nextLicenseTier();
-    if (next && this.run.cash >= next.cost) hint.textContent = `buy: ${next.name}`;
-    else if (this.run.cash >= this.run.upgradeCost('carry')) hint.textContent = 'upgrades ready';
-    else hint.textContent = 'licences · staff · upgrades';
+    // Phones get the price only: the full "buy: <name>" string does not fit a
+    // 320px row next to the INVEST label and ends up ellipsised mid-word.
+    const compact = typeof window !== 'undefined' && window.innerWidth <= 560;
+    if (next && this.run.cash >= next.cost) {
+      hint.textContent = compact ? `₦${(next.cost / 1000).toFixed(0)}k licence` : `buy: ${next.name}`;
+    } else if (this.run.cash >= this.run.upgradeCost('carry')) {
+      hint.textContent = compact ? 'upgrade ready' : 'upgrades ready';
+    } else {
+      hint.textContent = compact ? 'licences · staff' : 'licences · staff · upgrades';
+    }
   }
 
   // ------------------------------------------------------------------ drawer

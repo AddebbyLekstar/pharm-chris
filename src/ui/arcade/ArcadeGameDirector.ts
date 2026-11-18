@@ -86,6 +86,8 @@ export class ArcadeGameDirector {
 
     // 2. Viewport & Camera
     this.viewport = new ArcadeViewport({ scene: this.scene.scene });
+    this.viewport.setRoomBounds(this.scene.getRoomBounds());
+    this.viewport.setPlayableBounds(this.scene.getWalkableBounds());
 
     // 3. Input Controller
     this.input = new InputController();

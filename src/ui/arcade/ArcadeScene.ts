@@ -353,4 +353,9 @@ export class ArcadeScene {
   public getWalkableBounds(): WalkableBounds {
     return { ...this.bounds };
   }
+
+  /** Full floor extent (16 x 18 m), which the camera must not look past. */
+  public getRoomBounds(): { minX: number; maxX: number; minZ: number; maxZ: number } {
+    return { minX: -8, maxX: 8, minZ: -9, maxZ: 9 };
+  }
 }

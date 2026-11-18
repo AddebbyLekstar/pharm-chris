@@ -7,3 +7,8 @@ dist/
 
 .vercel
 .env*.local
+
+# Local verification artifacts (screenshots, probe JSON, pulled evidence)
+instabox-check/
+layout-shots/
+layout*.json
