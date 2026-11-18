@@ -12,6 +12,8 @@ export class ArcadeViewport {
   public renderer: THREE.WebGLRenderer | null = null;
   public container: HTMLElement | null = null;
   public aspect: number = 1;
+  /** Base camera offset for a landscape view; scaled out on narrow screens. */
+  private readonly baseOffset = new THREE.Vector3(12, 16, 12);
   public targetOffset: THREE.Vector3 = new THREE.Vector3(12, 16, 12);
   public cameraTarget: THREE.Vector3 = new THREE.Vector3(0, 1, 0);
   private resizeObserver: any = null;
@@ -96,6 +98,11 @@ export class ArcadeViewport {
       // Desktop widescreen
       this.camera.fov = 34;
     }
+
+    // Fit the 16m shop to the width: a portrait phone at FOV 44 otherwise crops
+    // both shelf walls off-screen and the store looks empty.
+    const fit = Math.min(1.95, Math.max(1, 0.78 / Math.max(0.3, this.aspect)));
+    this.targetOffset.copy(this.baseOffset).multiplyScalar(fit);
 
     this.camera.updateProjectionMatrix();
 

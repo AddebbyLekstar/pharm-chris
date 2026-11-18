@@ -87,7 +87,15 @@ export class ArcadeStoreHud {
       #pharm-hud .chip .v { font-size:1rem; font-weight:900; line-height:1.15; color:#fff; }
       #pharm-hud .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
       #pharm-hud .topbar { position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; gap:8px; pointer-events:auto; z-index:12; }
-      #pharm-objective { position:absolute; top:74px; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,rgba(16,26,21,0.95),rgba(9,16,12,0.97)); border:2px solid #00E676; border-radius:20px; padding:7px 16px; color:#fff; font-size:0.8rem; font-weight:800; letter-spacing:0.03em; white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis; z-index:12; pointer-events:none; }
+      #pharm-objective { position:absolute; top:78px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; background:linear-gradient(135deg,rgba(16,26,21,0.95),rgba(9,16,12,0.97)); border:2px solid #00E676; border-radius:20px; padding:6px 14px; color:#fff; font-size:0.8rem; font-weight:800; letter-spacing:0.03em; white-space:nowrap; max-width:92vw; z-index:12; pointer-events:none; }
+      #pharm-objective span { overflow:hidden; text-overflow:ellipsis; }
+      @media (max-width: 430px) {
+        #pharm-hud .chip { padding:5px 9px; border-radius:10px; }
+        #pharm-hud .chip .v { font-size:0.9rem; }
+        #pharm-hud .chip .k { font-size:0.55rem; }
+        #pharm-objective { top:112px; font-size:0.7rem; padding:5px 10px; max-width:94vw; }
+        #pharm-toasts { top:148px; }
+      }
       #pharm-hud .hint { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); background:rgba(10,16,13,0.78); border:1px solid rgba(255,255,255,0.1); border-radius:20px; padding:5px 14px; color:#c4d4cc; font-size:0.74rem; }
       #pharm-invest-btn { position:absolute; right:12px; bottom:12px; z-index:14; pointer-events:auto; min-height:52px; min-width:52px; padding:0 18px; border-radius:16px; background:linear-gradient(160deg,#00E676,#00b45e); color:#04160d; font-weight:900; font-size:0.9rem; border:none; box-shadow:0 8px 22px rgba(0,230,118,0.35); cursor:pointer; letter-spacing:0.04em; }
       #pharm-invest-btn .badge { display:block; font-size:0.6rem; font-weight:700; opacity:0.8; }

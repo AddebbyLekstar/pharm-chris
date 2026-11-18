@@ -128,19 +128,23 @@ export class PharmacyShelves3D {
       shelfBay.add(plate);
 
       // Display boxes: one InstancedMesh per bay (9 draws -> 1 draw per bay).
-      const boxGeo = new THREE.BoxGeometry(0.35, 0.18, 0.24);
+      const boxGeo = new THREE.BoxGeometry(0.42, 0.24, 0.3);
+      // Product packs are a lighter tint of the bay colour so they read as stock
+      // against the dark steel, not as part of the fixture.
       const boxMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(conf.color),
-        roughness: 0.4,
+        color: new THREE.Color(conf.color).lerp(new THREE.Color(0xffffff), 0.55),
+        roughness: 0.35,
+        emissive: new THREE.Color(conf.color).multiplyScalar(0.12),
       });
-      const instanced = new THREE.InstancedMesh(boxGeo, boxMat, 9);
+      const instanced = new THREE.InstancedMesh(boxGeo, boxMat, 12);
       const matrix = new THREE.Matrix4();
       let index = 0;
-      for (let r = 0; r < 3; r++) {
+      for (let r = 0; r < 4; r++) {
         for (let c = 0; c < 3; c++) {
           const xOffset = (c - 1) * 0.42;
-          const yOffset = 0.6 + r * 0.65;
-          const zOffset = conf.position.x < 0 ? 0.35 : -0.35;
+          const yOffset = 0.55 + r * 0.55;
+          // Sit the packs proud of the body face, otherwise they are inside the box.
+          const zOffset = conf.position.x < 0 ? 0.56 : -0.56;
           matrix.makeTranslation(xOffset, yOffset, zOffset);
           instanced.setMatrixAt(index++, matrix);
         }
@@ -207,7 +211,11 @@ export class PharmacyShelves3D {
   public updateVisuals(): void {
     for (const [cat, instanced] of this.displayBoxMeshes.entries()) {
       const stock = this.getStock(cat);
-      const count = Math.max(0, Math.min(9, Math.ceil((stock / Math.max(6, this.capacity)) * 9)));
+      // Any stock on the bay should read as stock. Stock is visualised on a square
+      // root curve so a half-full shelf looks half full, and a working shelf never
+      // looks bare.
+      const ratio = Math.min(1, stock / Math.max(6, this.capacity));
+      const count = stock <= 0 ? 0 : Math.max(6, Math.min(12, Math.ceil(Math.sqrt(ratio) * 12)));
       instanced.count = count;
     }
   }
