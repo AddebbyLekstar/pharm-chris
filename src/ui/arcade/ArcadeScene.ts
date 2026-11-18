@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { quality } from './quality';
+import { LIGHTS, artVersion, bakeContactAO } from './art';
 
 export interface WalkableBounds {
   minX: number;
@@ -27,6 +28,44 @@ export class ArcadeScene {
 
     this.buildLighting();
     this.buildPharmacyEnvironment();
+    if (artVersion() === 'v2') {
+      // Static geometry only: characters are added later by the director.
+      bakeContactAO(this.group, 0, 0.9);
+      this.finishArtPass();
+    }
+  }
+
+  /**
+   * v2 finishing: the terrazzo reads as blown-out white under a brighter sun, and
+   * large fixtures sit on it without a contact shadow. Both are cheap to fix and
+   * both are what makes a scene look pasted together.
+   */
+  private finishArtPass(): void {
+    const floor = this.group.getObjectByName('pharm-floor') as THREE.Mesh | undefined;
+    if (floor) {
+      const mat = floor.material as THREE.MeshStandardMaterial;
+      mat.color.setHex(0xd8d1c2);
+      mat.roughness = 0.55;
+      mat.needsUpdate = true;
+    }
+
+    const shade = (w: number, d: number, x: number, z: number, opacity: number): void => {
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, d),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity, depthWrite: false })
+      );
+      plane.rotation.x = -Math.PI / 2;
+      plane.position.set(x, 0.02, z);   // clear of the floor plane's depth epsilon at 34 m
+      plane.renderOrder = 1;
+      this.group.add(plane);
+    };
+
+    // Counter footprint plus a soft overhang
+    shade(7.2, 1.7, 0, 1.5, 0.22);
+    // Wall bases: a narrow band that reads as occlusion, not decoration
+    shade(16, 0.75, 0, -8.55, 0.22);
+    shade(0.75, 18, -7.55, 0, 0.16);
+    shade(0.75, 18, 7.55, 0, 0.16);
   }
 
   /**
@@ -49,12 +88,15 @@ export class ArcadeScene {
   }
 
   private buildLighting(): void {
-    // Spec 2.2: AmbientLight - Warm ambient fill to lift contrast
-    const ambient = new THREE.AmbientLight(0xfff7ec, 0.90);
+    const setup = LIGHTS[artVersion()];
+
+    // Ambient fill lifts contrast; v2 drops it because the environment map now
+    // supplies the fill that flat ambient used to fake.
+    const ambient = new THREE.AmbientLight(setup.ambient.color, setup.ambient.intensity);
     this.group.add(ambient);
 
-    // Spec 2.2: DirectionalLight (Sun) - Primary sun cutting 45° crisp isometric shadows
-    const sun = new THREE.DirectionalLight(0xffeed6, 1.75);
+    // Primary sun cutting crisp isometric shadows
+    const sun = new THREE.DirectionalLight(setup.sun.color, setup.sun.intensity);
     sun.position.set(12.0, 22.0, 14.0);
     const shadows = quality().shadows;
     sun.castShadow = shadows;
@@ -72,19 +114,21 @@ export class ArcadeScene {
     this.group.add(sun);
 
     // Spec 2.2: HemisphereLight - Sky ambient fill and warm terrazzo floor bounce
-    const hemi = new THREE.HemisphereLight(0xb5e2ff, 0x3d2716, 0.45);
+    const hemi = new THREE.HemisphereLight(setup.hemisphere.sky, setup.hemisphere.ground, setup.hemisphere.intensity);
     hemi.position.set(0, 20.0, 0);
     this.group.add(hemi);
 
-    // Spec 2.2: PointLight (Counter Spot) - Spotlights dispensary counter
-    const counterSpot = new THREE.PointLight(0xfff3db, 1.50, 14.0, 1.1);
-    counterSpot.position.set(0.0, 3.8, 1.5);
-    this.group.add(counterSpot);
+    if (setup.counterSpot) {
+      const counterSpot = new THREE.PointLight(setup.counterSpot.color, setup.counterSpot.intensity, setup.counterSpot.distance, 1.1);
+      counterSpot.position.set(0.0, 3.8, 1.5);
+      this.group.add(counterSpot);
+    }
 
-    // Spec 2.2: PointLight (Green Cross Glow) - Back-wall medical neon glow
-    const crossGlow = new THREE.PointLight(0x00e676, 0.65, 10.0, 1.5);
-    crossGlow.position.set(0.0, 3.2, -7.5);
-    this.group.add(crossGlow);
+    if (setup.crossGlow) {
+      const crossGlow = new THREE.PointLight(setup.crossGlow.color, setup.crossGlow.intensity, setup.crossGlow.distance, 1.5);
+      crossGlow.position.set(0.0, 3.2, -7.5);
+      this.group.add(crossGlow);
+    }
   }
 
   private buildPharmacyEnvironment(): void {
@@ -96,6 +140,7 @@ export class ArcadeScene {
       metalness: 0.04,
     });
     const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.name = 'pharm-floor';
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.receiveShadow = true;
     this.group.add(floorMesh);
@@ -209,6 +254,7 @@ export class ArcadeScene {
       metalness: 0.05,
     });
     const counter = new THREE.Mesh(counterGeo, teakMat);
+    counter.name = 'pharm-counter';
     counter.position.set(0, 0.575, 1.5);
     counter.castShadow = true;
     counter.receiveShadow = true;

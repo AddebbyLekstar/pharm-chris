@@ -135,6 +135,20 @@ Below 560px the HUD switches to its phone layout: the control hint moves above t
 action row, the INVEST badge shrinks to a price, the mode switcher collapses to two
 icon buttons, and touch devices get touch copy instead of `WASD`.
 
+## Art direction
+
+The renderer ships two looks, switchable per URL so they can be compared from one
+build: `?art=v1` (default, flat ambient) and `?art=v2`.
+
+v2 is the environment-lighting pass in `src/ui/arcade/art.ts`: a PMREM environment
+map instead of a 0.9 ambient wash, four lights instead of five, a matte-surface pass,
+a baked per-vertex contact-AO gradient on static geometry, contact bands under the
+counter and wall bases, and a floor pulled back from near-clipping.
+
+`node scripts/art-ab.mjs` captures both at 360×800 and 1280×720;
+`node scripts/art-stats.mjs` reports luminance percentiles per version, so a look
+change gets numbers rather than adjectives.
+
 ## Performance target
 
 The player device is a 2GB Tecno/Infinix at 360×800, not a desktop. `quality.ts`

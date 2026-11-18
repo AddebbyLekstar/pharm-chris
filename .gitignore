@@ -12,3 +12,7 @@ dist/
 instabox-check/
 layout-shots/
 layout*.json
+
+# Art A/B captures
+art-ab/
+gate-*.json

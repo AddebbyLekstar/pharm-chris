@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PharmChrisEngine } from '../../sim/engine';
 import { soundFx } from '../../audio/sfx';
 import { ArcadeViewport } from './ArcadeViewport';
+import { applyArtDirection, artVersion } from './art';
 import { ArcadeScene } from './ArcadeScene';
 import { InputController } from './InputController';
 import { ArcadePlayer } from './ArcadePlayer';
@@ -304,6 +305,8 @@ export class ArcadeGameDirector {
   public mount(container: HTMLElement): void {
     this.container = container;
     this.viewport.mount(container);
+    // The renderer only exists after mount, so the environment map is built here.
+    applyArtDirection(this.scene.scene, this.scene.group, this.viewport.renderer, artVersion());
     this.input.attach(container);
     this.dialogueModal.mount(container);
     this.juice.attach(container);

@@ -57,7 +57,8 @@ for (const size of SIZES) {
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text().slice(0, 200)}`); });
 
-  await page.goto(`${URL_BASE}?mode=arcade&debug=1&quality=low`, { waitUntil: 'domcontentloaded' });
+  const sep = URL_BASE.includes('?') ? '&' : '?';
+  await page.goto(`${URL_BASE}${sep}mode=arcade&debug=1&quality=low`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction('!!window.pharmChris', null, { timeout: 30000 });
   await page.evaluate(() => localStorage.removeItem('pharm_chris_run_v2'));
   await page.reload({ waitUntil: 'domcontentloaded' });
