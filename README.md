@@ -67,7 +67,7 @@ costs and what it pays. The renderer never owns a number.
 npm install
 npm run dev        # http://localhost:3030
 npm run build      # tsc + vite build
-npm test           # 140 tests: sim, save, telemetry, arcade integration, season proof
+npm test           # 151 tests: sim, save, telemetry, arcade integration, camera framing, season proof
 ```
 
 Useful scripts (all run against the real economy):
@@ -77,7 +77,14 @@ npx vite-node scripts/balance.ts --seeds=1,7,42 --verbose   # economy curve for 
 npx vite-node scripts/season_report.ts                      # play every ending, print the trace
 node scripts/playtest-gpu.mjs                               # real-GPU playthrough + screenshots
 QUALITY=low node scripts/perf-probe.mjs                     # 6x-throttled perf probe
+node scripts/check-mobile.mjs                               # HUD/camera gate, 7 viewports (exit 1 on failure)
+node scripts/check-android.mjs --cdp http://127.0.0.1:9222  # same gate on Android WebView over CDP
 ```
+
+`check-mobile.mjs` is the regression gate for the two things a screenshot cannot
+settle: overlapping HUD elements and geometry parked off screen. It fails the run if
+any HUD boxes intersect, the page scrolls horizontally, the player renders under 38px
+tall, or a trigger zone is off screen while the player stands in it.
 
 ## Controls
 
@@ -110,6 +117,24 @@ to serve. Upgrade pads charge while you stand on them.
 reachable and asserted in `tests/season_bot.test.ts`; the trace and seeds are written
 up in [`docs/SEASON-PROOF.md`](docs/SEASON-PROOF.md).
 
+## Camera and HUD
+
+The camera solves its own framing instead of multiplying a fixed offset by the aspect
+ratio (`src/ui/arcade/ArcadeViewport.ts`):
+
+- **Wide viewports** frame the whole 16×18 m room with a 0.92 screen margin and trail
+  the player by at most 2.2 m, so the shop stays centred.
+- **Phones** cannot show the whole room *and* keep a 1.75 m character controllable —
+  fitting the room on a 360px screen renders the player at about 20px. So the view
+  zooms to a playable scale (player ≥ 40px) and trails the player, clamped 2.5 m
+  inside the walls. Every zone is on screen by the time you stand in it.
+- The solver projects the room corners and iterates the distance; the pan limits are
+  measured, not guessed.
+
+Below 560px the HUD switches to its phone layout: the control hint moves above the
+action row, the INVEST badge shrinks to a price, the mode switcher collapses to two
+icon buttons, and touch devices get touch copy instead of `WASD`.
+
 ## Performance target
 
 The player device is a 2GB Tecno/Infinix at 360×800, not a desktop. `quality.ts`
@@ -123,4 +148,5 @@ Numbers, method and the remaining gaps: [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET
 - [`docs/3D_VISUAL_JUICE_SPEC.md`](docs/3D_VISUAL_JUICE_SPEC.md) — the tactile spec the 3D layer implements
 - [`docs/SEASON-PROOF.md`](docs/SEASON-PROOF.md) — endings, seeds, assertions
 - [`docs/PERF-BUDGET.md`](docs/PERF-BUDGET.md) — device profile, draw-call budget, fixes
+- [`docs/VERIFICATION.md`](docs/VERIFICATION.md) — how a build is proven, and on which sandboxes
 - [`docs/BENCHMARK-IDLE-LUMBERJACK.md`](docs/BENCHMARK-IDLE-LUMBERJACK.md) — APK teardown of the benchmark, and what we took from it

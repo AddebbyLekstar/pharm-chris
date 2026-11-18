@@ -18,17 +18,33 @@ what remains unverified.
 
 | Metric | Budget | Before | After (low tier) | After (high tier) | Status |
 |---|---|---|---|---|---|
-| Draw calls / frame | < 120 | **161 max** (145 avg) | **85 max, 75 avg** | 133 max, 111 avg | ✅ low tier |
-| Triangles | (no budget set) | 3,480 | 2,376 | 3,024 | ✅ |
+| Draw calls / frame | < 120 | **161 max** (145 avg) | **76 max, 75 avg** | 133 max, 111 avg | ✅ low tier |
+| Triangles | (no budget set) | 3,480 | 2,408 | 3,024 | ✅ |
 | Texture memory | < 40 MB | ~0 (procedural only) | ~0 | 4 MB (shadow map) | ✅ |
-| Frame time p50 @6× | 33 ms (30 fps) | 100 ms | **50 ms (20 fps)** | 67 ms (15 fps) | ⚠️ see gaps |
-| Frame time p95 | — | 167 ms | 100 ms | 133 ms | — |
+| Frame time p50 @6× | 33 ms (30 fps) | 100 ms | **33 ms (30 fps)** | 67 ms (15 fps) | ⚠️ see gaps |
+| Frame time p95 | — | 167 ms | 50 ms | 133 ms | — |
 | JS heap after GC | flat | — | 6.1 MB, stable | 6.2 MB, stable | ✅ |
 | Per-frame allocations in hot paths | zero | 6 alloc sites | 0 | 0 | ✅ |
 | Console/page errors | 0 | 0 | 0 | 0 | ✅ |
 
 `Before` is the same harness, same scene, run earlier in this session against the
 pre-optimisation build (staff/expansions absent, 2 customers queued).
+
+### Re-measured after the camera rework (2026-11-18)
+
+The camera now solves its framing from the room's projected corners instead of a
+fixed aspect multiplier, which changes what is on screen and therefore the draw
+counts. Same probe harness, same device profile, run in an Instabox sandbox:
+
+| Where | Draw calls | Triangles | Frame time | Notes |
+|---|---|---|---|---|
+| Phone profile, low tier, 6× CPU throttle | **76 max, 75 avg** | 2,408 | p50 33.3 ms / p95 50 ms | the budget case; below the 85 of the previous build |
+| Desktop 1280×720, high tier | 143 max | — | not measured | higher than before (134): the camera is further out and frames the whole room, so less is culled |
+| Android 14 WebView 360×495 (emulator, SwiftShader) | 70 | 2,056 | p50 66.7 ms | software GL; the ms figure is not a phone number |
+
+Desktop is above the 120 draw-call budget by design at the wider framing. The budget
+targets the 2GB Android profile, and that profile improved. If the desktop figure
+matters, the lever is a distance-based cull on the far shelf bays, not a smaller room.
 
 ## What was cut, and why
 
