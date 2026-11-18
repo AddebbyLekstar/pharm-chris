@@ -62,6 +62,16 @@ export class FloorUpgradePad {
     this.mesh.add(this.progressMesh);
   }
 
+  /** Re-arms a pad for the next level after a purchase. */
+  public reset(cost: number, title: string): void {
+    this.cost = cost;
+    this.title = title;
+    this.isUnlocked = false;
+    this.progress = 0;
+    this.mesh.visible = true;
+    this.progressMesh.scale.set(0.001, 0.001, 1);
+  }
+
   public isInside(pos: THREE.Vector3): boolean {
     const dx = pos.x - this.position.x;
     const dz = pos.z - this.position.z;

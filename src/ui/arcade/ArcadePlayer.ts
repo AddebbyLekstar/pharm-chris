@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ArcadeScene, WalkableBounds } from './ArcadeScene';
+import { mergeRig } from './mergeMeshes';
 
 export interface ArcadePlayerOptions {
   bounds?: WalkableBounds;
@@ -32,9 +33,12 @@ export class ArcadePlayer {
     this.baseSpeed = options?.baseSpeed ?? 6.0;
 
     this.mesh = new THREE.Group();
-    this.mesh.position.set(0, 0, 0);
+    // Spawn by the entrance, not on the register pad (the counter trigger would
+    // otherwise fire the moment the page loads).
+    this.mesh.position.set(0, 0, 4.2);
 
     this.buildStylizedModel();
+    mergeRig(this.mesh);
 
     // Spec 1.3 & 2.3: Grounded circular contact shadow beneath Chris
     this.contactShadow = ArcadeScene.createContactShadow(0.55, 0.36);

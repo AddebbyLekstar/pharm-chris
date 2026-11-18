@@ -524,6 +524,23 @@ export class PharmChrisEngine {
     }
   }
 
+  /** Resets the per-delivery MAS verification allowance (3 checks a day). */
+  public beginTradingDay(): void {
+    this.state.dailyScratchQuota = 3;
+  }
+
+  /**
+   * Puts a supplier crate on the counter without advancing the calendar.
+   * Used by the arcade loop, which owns its own day clock.
+   */
+  public receiveDelivery(choice: SupplierChoice): DeliveryCrate {
+    const crate = this.generateDeliveryCrate(choice);
+    this.state.activeDelivery = crate;
+    this.state.deliveryResolved = false;
+    this.state.deliveryResolution = undefined;
+    return crate;
+  }
+
   public scratchMasCode(amount = 25): { scratchPercentage: number; isRevealed: boolean } {
     if (!this.state.activeDelivery) {
       throw new Error('No active delivery crate to scratch');
@@ -987,11 +1004,12 @@ export class PharmChrisEngine {
     return result;
   }
 
-  public executeAgencyRaid(): AgencyRaidResult {
+  public executeAgencyRaid(dossierClueCount?: number): AgencyRaidResult {
     if (this.state.agencyRaidCompleted) {
       throw new Error('The Agency anti-counterfeiting raid has already been conducted this season.');
     }
-    const clueCount = (this.state.clues || []).length;
+    // The arcade layer keeps its own docket; accept it instead of double-counting.
+    const clueCount = Math.max(dossierClueCount ?? 0, (this.state.clues || []).length);
     if (clueCount < 7) {
       throw new Error(`Insufficient evidence. Need at least 7 clues to trigger an Agency raid; currently have ${clueCount}.`);
     }

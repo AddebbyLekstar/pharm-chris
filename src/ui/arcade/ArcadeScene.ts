@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { quality } from './quality';
 
 export interface WalkableBounds {
   minX: number;
@@ -10,6 +11,7 @@ export interface WalkableBounds {
 export class ArcadeScene {
   public group: THREE.Group;
   public scene: THREE.Scene;
+  private expansionGroup: THREE.Group | null = null;
   private bounds: WalkableBounds = {
     minX: -6.0,
     maxX: 6.0,
@@ -54,9 +56,10 @@ export class ArcadeScene {
     // Spec 2.2: DirectionalLight (Sun) - Primary sun cutting 45° crisp isometric shadows
     const sun = new THREE.DirectionalLight(0xffeed6, 1.75);
     sun.position.set(12.0, 22.0, 14.0);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
+    const shadows = quality().shadows;
+    sun.castShadow = shadows;
+    sun.shadow.mapSize.width = shadows ? 1024 : 256;
+    sun.shadow.mapSize.height = shadows ? 1024 : 256;
     sun.shadow.camera.near = 0.5;
     sun.shadow.camera.far = 55;
     sun.shadow.bias = -0.0004;
@@ -224,14 +227,17 @@ export class ArcadeScene {
     slab.receiveShadow = true;
     this.group.add(slab);
 
-    // Glass Sneeze Guard Partition (MeshPhysicalMaterial with transmission)
-    const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0xe0f7fa,
-      transmission: 0.92,
-      opacity: 1.0,
+    // Glass Sneeze Guard Partition.
+    // A transmission material forces three.js to render the whole scene into an
+    // extra buffer every frame (2x draw calls on a phone) for a detail nobody
+    // reads at this camera distance. Plain transparency looks the same here.
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0xd7f0f4,
       transparent: true,
-      roughness: 0.08,
-      ior: 1.52,
+      opacity: 0.28,
+      roughness: 0.15,
+      metalness: 0.05,
+      depthWrite: false,
     });
     // Left and right sneeze guards leaving 1.2m service gap in center
     const glassPanelGeo = new THREE.BoxGeometry(2.4, 0.75, 0.06);
@@ -274,6 +280,74 @@ export class ArcadeScene {
     );
     crossH.position.set(0, 3.2, -8.95);
     this.group.add(crossH);
+  }
+
+  /**
+   * Visibly grows the store. Level 1 knocks down the partition (extra aisle,
+   * waiting bench, second register); level 2 adds the consultation corner.
+   * Rebuilds into one group and disposes the previous geometry so repeated
+   * expansions cannot leak buffers.
+   */
+  public applyExpansion(level: number): void {
+    if (this.expansionGroup) {
+      this.group.remove(this.expansionGroup);
+      this.expansionGroup.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+      });
+      this.expansionGroup = null;
+    }
+    if (level <= 0) return;
+
+    const g = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.7 });
+    const teal = new THREE.MeshStandardMaterial({ color: 0x1b4d3e, roughness: 0.45 });
+    const cream = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.4 });
+
+    if (level >= 1) {
+      // Second aisle floor patch on the east side
+      const aisle = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 10), cream);
+      aisle.rotation.x = -Math.PI / 2;
+      aisle.position.set(6.2, 0.004, 1.6);
+      aisle.receiveShadow = true;
+      g.add(aisle);
+
+      // Waiting bench for the queue
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 0.6), wood);
+      bench.position.set(-4.6, 0.46, 5.4);
+      bench.castShadow = true;
+      g.add(bench);
+      for (const dx of [-1.1, 1.1]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.46, 0.5), teal);
+        leg.position.set(-4.6 + dx, 0.23, 5.4);
+        g.add(leg);
+      }
+
+      // Second register station
+      const reg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.6), teal);
+      reg.position.set(3.1, 1.5, 1.5);
+      reg.castShadow = true;
+      g.add(reg);
+    }
+
+    if (level >= 2) {
+      // Consultation corner: curtain rail + screen + stool
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 0.08), teal);
+      rail.position.set(-4.8, 2.5, -1.6);
+      g.add(rail);
+      const curtain = new THREE.Mesh(
+        new THREE.BoxGeometry(2.5, 2.2, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0x2f6f56, roughness: 0.9, transparent: true, opacity: 0.85 })
+      );
+      curtain.position.set(-4.8, 1.35, -1.6);
+      g.add(curtain);
+      const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.5, 12), wood);
+      stool.position.set(-4.8, 0.25, -1.1);
+      g.add(stool);
+    }
+
+    this.expansionGroup = g;
+    this.group.add(g);
   }
 
   public getWalkableBounds(): WalkableBounds {

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeRig } from './mergeMeshes';
 import { Customer } from '../../sim/types';
 import { ArcadeScene } from './ArcadeScene';
 
@@ -38,6 +39,7 @@ export class ArcadeCustomer {
     this.contactShadow = ArcadeScene.createContactShadow(0.48, 0.32);
     this.mesh.add(this.contactShadow);
 
+    mergeRig(this.mesh);
     this.updateTargetSlot(slotIndex);
   }
 

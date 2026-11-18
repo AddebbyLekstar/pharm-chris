@@ -1434,10 +1434,13 @@ function renderModeSwitcher(activeMode: '3d' | 'arcade'): void {
     document.body.appendChild(switcherEl);
   }
 
+  // Bottom-left, clear of the HUD's cash chips, debt chip and investment drawer.
   switcherEl.style.position = 'fixed';
-  switcherEl.style.top = '12px';
-  switcherEl.style.right = '12px';
-  switcherEl.style.zIndex = '50';
+  switcherEl.style.bottom = '64px';
+  switcherEl.style.left = '10px';
+  switcherEl.style.top = 'auto';
+  switcherEl.style.right = 'auto';
+  switcherEl.style.zIndex = '30';
   switcherEl.style.display = 'flex';
   switcherEl.style.gap = '8px';
   switcherEl.style.alignItems = 'center';

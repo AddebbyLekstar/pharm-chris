@@ -4,6 +4,7 @@ import { ArcadeScene } from './ArcadeScene';
 export interface CashDrop {
   mesh: THREE.Object3D;
   amount: number;
+  id?: string;
   position: THREE.Vector3;
   rotationSpeed: number;
   floatOffset: number;
@@ -20,7 +21,10 @@ export class CashDropManager {
   private strapGeo: THREE.BoxGeometry;
   private bundleMat: THREE.MeshStandardMaterial;
   private strapMat: THREE.MeshStandardMaterial;
-  private pickupRadius: number = 2.4; // Spec 4.1: r_pickup = 2.4m
+  // Spec 4.1 said 2.4m; raised so a phone player never chases a bundle.
+  private pickupRadius: number = 3.2;
+  private readonly scratchTarget = new THREE.Vector3();
+  private readonly scratchDir = new THREE.Vector3();
 
   constructor() {
     this.group = new THREE.Group();
@@ -43,7 +47,7 @@ export class CashDropManager {
     return this.drops.length;
   }
 
-  public spawnCash(position: THREE.Vector3, amount: number, burst: boolean = true): CashDrop {
+  public spawnCash(position: THREE.Vector3, amount: number, burst: boolean = true, id?: string): CashDrop {
     const container = new THREE.Group();
     container.position.copy(position);
 
@@ -61,13 +65,15 @@ export class CashDropManager {
     container.add(contactShadow);
 
     // Parabolic burst velocity or mild drift
-    const velX = burst ? (Math.random() - 0.5) * 1.8 : 0;
-    const velY = burst ? 2.6 + Math.random() * 1.2 : 0;
-    const velZ = burst ? 0.6 + Math.random() * 1.4 : 0;
+    // A short pop, not a lob: the bundle must be collectable within a second.
+    const velX = burst ? (Math.random() - 0.5) * 1.2 : 0;
+    const velY = burst ? 1.35 + Math.random() * 0.7 : 0;
+    const velZ = burst ? 0.25 + Math.random() * 0.5 : 0;
 
     const drop: CashDrop = {
       mesh: container,
       amount,
+      id,
       position: position.clone(),
       rotationSpeed: 2.8, // Spec 4.1: 2.8 rad/s
       floatOffset: Math.random() * Math.PI * 2,
@@ -82,9 +88,13 @@ export class CashDropManager {
     return drop;
   }
 
+  /** Ids collected during the last update call, when drops carried one. */
+  public collectedIds: string[] = [];
+
   public update(delta: number, playerPos: THREE.Vector3): number {
     let totalCollected = 0;
-    const targetPos = new THREE.Vector3(playerPos.x, playerPos.y + 0.8, playerPos.z);
+    this.collectedIds = [];
+    const targetPos = this.scratchTarget.set(playerPos.x, playerPos.y + 0.8, playerPos.z);
 
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const drop = this.drops[i];
@@ -99,6 +109,7 @@ export class CashDropManager {
       // Immediate arrival / collection threshold
       if (horizontalDist <= 0.45 || totalDist <= 0.45) {
         totalCollected += drop.amount;
+        if (drop.id) this.collectedIds.push(drop.id);
         this.group.remove(drop.mesh);
         this.drops.splice(i, 1);
         continue;
@@ -130,7 +141,7 @@ export class CashDropManager {
         const d = Math.max(0.01, totalDist / this.pickupRadius);
         const accelMag = 18.0 / (d + 0.1);
 
-        const toPlayer = targetPos.clone().sub(meshPos).normalize();
+        const toPlayer = this.scratchDir.copy(targetPos).sub(meshPos).normalize();
         drop.velocity.addScaledVector(toPlayer, accelMag * delta);
 
         // Clamp maximum vacuum velocity to avoid astronomical overshoots
@@ -144,6 +155,7 @@ export class CashDropManager {
         // Check if arrival reached during magnetic vacuum step
         if (meshPos.distanceTo(targetPos) <= 0.4) {
           totalCollected += drop.amount;
+          if (drop.id) this.collectedIds.push(drop.id);
           this.group.remove(drop.mesh);
           this.drops.splice(i, 1);
           continue;

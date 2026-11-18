@@ -17,6 +17,8 @@ export interface ArcadeCustomerQueueOptions {
   shelves: PharmacyShelves3D;
   maxQueue?: number;
   initialSpawn?: number;
+  /** The economy owns the clock; when false the queue never spawns on its own. */
+  autoSpawn?: boolean;
 }
 
 export class ArcadeCustomerQueue {
@@ -28,11 +30,13 @@ export class ArcadeCustomerQueue {
   private customers: ArcadeCustomer[] = [];
   private spawnTimer: number = 0;
   private spawnInterval: number = 6.0;
+  public autoSpawn: boolean = true;
 
   constructor(options: ArcadeCustomerQueueOptions) {
     this.engine = options.engine;
     this.shelves = options.shelves;
     this.maxQueue = options.maxQueue ?? 5;
+    this.autoSpawn = options.autoSpawn ?? true;
     this.group = new THREE.Group();
 
     // Spawn initial customers immediately on initialization (default 2)
@@ -60,6 +64,15 @@ export class ArcadeCustomerQueue {
     const slotIndex = this.queueLength;
     const customer = new ArcadeCustomer(custData, slotIndex);
 
+    this.customers.push(customer);
+    this.group.add(customer.mesh);
+    return customer;
+  }
+
+  /** Spawns the mesh for a customer the economy has already decided on. */
+  public spawnFrom(data: Customer): ArcadeCustomer | null {
+    if (this.queueLength >= this.maxQueue) return null;
+    const customer = new ArcadeCustomer(data, this.queueLength);
     this.customers.push(customer);
     this.group.add(customer.mesh);
     return customer;
@@ -127,12 +140,14 @@ export class ArcadeCustomerQueue {
   }
 
   public update(delta: number): void {
-    // Automatic spawner
-    this.spawnTimer += delta;
-    if (this.spawnTimer >= this.spawnInterval) {
-      this.spawnTimer = 0;
-      if (this.queueLength < this.maxQueue) {
-        this.spawnCustomer();
+    // Automatic spawner (legacy path; the arcade economy drives spawning instead)
+    if (this.autoSpawn) {
+      this.spawnTimer += delta;
+      if (this.spawnTimer >= this.spawnInterval) {
+        this.spawnTimer = 0;
+        if (this.queueLength < this.maxQueue) {
+          this.spawnCustomer();
+        }
       }
     }
 

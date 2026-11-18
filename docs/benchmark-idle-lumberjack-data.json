@@ -1,0 +1,207 @@
+{
+  "meta": {
+    "target": "Idle Lumberjack 3D (store listing name; in-app product ids and XAPK manifest still use this name) / 'Idle Lumberjack 2' as of v2.4.7",
+    "package": "by.hitbox.magicwoods",
+    "versionName": "2.4.7",
+    "versionCode": 109,
+    "minSdk": 26,
+    "targetSdk": 36,
+    "compileSdk": 36,
+    "apk_base_bytes": 45710367,
+    "xapk_total_bytes": 69648034,
+    "abi": ["arm64-v8a"],
+    "engine": "Unity 2022.3.62f3, IL2CPP (scripting backend), global-metadata version 31, arm64 libil2cpp.so",
+    "analysed_on": "2026-11-18",
+    "evidence_root": "C:/Users/hp/AppData/Local/hermes/cache/scratch/idle-lumberjack",
+    "status_legend": {
+      "VERIFIED": "value read directly out of an extracted file (asset, manifest, table, disassembly)",
+      "INFERRED": "derived by arithmetic/logic from VERIFIED values",
+      "UNKNOWN": "not recoverable in this pass"
+    }
+  },
+
+  "monetisation": {
+    "showAds_flag": {"value": false, "status": "VERIFIED", "source": "resources.assets AdsSettings 'Ads Settings' object (path_id 10927), field showAds @ class offset 0x59 = 0"},
+    "enableEditorLogging": {"value": true, "status": "VERIFIED", "source": "same object, offset 0x58 = 1"},
+    "default_interstitial_interval_seconds": {"value": 35.0, "status": "VERIFIED", "source": "AdsSettings.defaultSettings (AdsSetting.defaultInterstitialsInterval @ 0x18), first AB entry 'Default'"},
+    "ab_test_ads_timing_name": {"value": "AB1_ads_timing_1.6.1", "status": "VERIFIED", "source": "AdsSettings payload string table"},
+    "ab_test_notifications_name": {"value": "AB2_notifications_1.6.1", "status": "VERIFIED", "source": "AdsSettings payload string table"},
+    "banner_enabled_default": {"value": true, "status": "VERIFIED", "source": "AdsSetting.isBannerEnabled @ 0x1C = 1"},
+    "force_interstitial_on_interval_default": {"value": false, "status": "VERIFIED", "source": "AdsSetting.forceInterstitialShowOnInterval @ 0x1D = 0"},
+    "interstitial_adTags_configured": {"value": 0, "status": "VERIFIED", "source": "AdsSetting.adTags List count = 0 for the 'Default' entry (no interstitial trigger tags wired in config)"},
+    "remote_config_override": {"value": "interstitialsInterval (RemoteConfigFloatParameter, key-based)", "status": "VERIFIED", "source": "AdsSettings.interstitialsInterval @ 0x68"},
+    "ad_sdks_bundled": {"value": [], "status": "VERIFIED", "source": "classes.dex string scan: 0 hits for applovin/maxadsdk/unityads/vungle/ironsource-sdk/admob SDK classes; lib/ has only libAndroidCpuUsage.so, libil2cpp.so, libmain.so, libunity.so"},
+    "ad_wrapper_classes": {"value": ["MagicWoodsGame.Advertisment.Ads", "AdsHandler", "InterstitialAdsHandler", "RewardedAdsHandler", "BannerAdsHandler", "ForceInterstitialAdsHandler", "MaxAdsController", "AdsSettings", "MagicWoodsGame.Advertisment.CrossPromo.UI.*"], "status": "VERIFIED", "source": "dump.cs / MonoScript table"},
+    "no_ads_product": {"value": "by.hitbox.magicwoods.noads", "status": "VERIFIED", "source": "sharedassets1.assets IAPSettings (path_id 765) string table"},
+    "iap_products": {"value": ["by.hitbox.magicwoods.standard_coins_pack", "by.hitbox.magicwoods.special_offer_coins_pack", "by.hitbox.magicwoods.standard_seeds_pack", "by.hitbox.magicwoods.special_offer_seeds_pack"], "status": "VERIFIED", "source": "same IAPSettings object"},
+    "subscription": {"value": "weekly 'become a wizard' subscription, 3-day free trial; gives no-ads + daily seeds + fox pet + permanent flying blades", "status": "VERIFIED", "source": "resources.assets I2Languages terms subscription_window_* (text asset path_id 10859)"},
+    "rewarded_ad_hook": {"value": "'FREE' button = free upgrade for watching an ad", "status": "VERIFIED", "source": "I2Languages term free_upgrade_for_ads_button = 'FREE'; UpgradeData.PurchaseFreeUpgrade()/PurchaseUpgrade() in dump.cs"}
+  },
+
+  "timing": {
+    "sawmill_max_collect_process_time_s": {"value": 1.0, "status": "VERIFIED", "source": "resources.assets 'Sawmill Settings' (path_id 11021) float[0]"},
+    "sawmill_max_between_trees_delay_s": {"value": 0.05, "status": "VERIFIED", "source": "same object float[1]"},
+    "sawmill_tree_fly_time_s": {"value": 0.15, "status": "VERIFIED", "source": "same object float[2]"},
+    "shop_max_buyout_process_time_s": {"value": 1.0, "status": "VERIFIED", "source": "resources.assets 'Shop Settings' (path_id 11022) float[0]"},
+    "shop_expected_between_trees_delay_s": {"value": 0.05, "status": "VERIFIED", "source": "same object float[1]"},
+    "shop_tree_fly_time_s": {"value": 0.15, "status": "VERIFIED", "source": "same object float[2]"},
+    "player_max_tree_parts_for_attack_speed": {"value": 250, "status": "VERIFIED", "source": "resources.assets 'Player Settings' (path_id 11075) int @ payload 12"},
+    "player_speed_values": {"value": "unresolved (Player Settings payload holds several floats 0.3333/1/2/7/10/17/8/15 but field order could not be mapped with confidence)", "status": "UNKNOWN", "source": "resources.assets 'Player Settings'"},
+    "swing_time_s": {"value": null, "status": "UNKNOWN", "source": "driven by Animator clips + AnimationCurve, no scalar literal recovered"}
+  },
+
+  "progression": {
+    "axe_upgrade_table": {
+      "status": "VERIFIED",
+      "source": "resources.assets 'Default Axe Levels Settings' (AxeUpgradesSettings, path_id 11083), List<AxeUpgradeSetting>{int level; double cost; double damage; bool} stride 24",
+      "rows": 1761,
+      "damage_growth_per_level": 1.5,
+      "cost_growth_per_level_median": 1.5,
+      "cost_growth_pattern": "×2.0, ×1.5, ×1.3333, ×1.25 repeating (= ×5.0 per 4 levels)",
+      "cost_equals_5x_damage_from_level": 8,
+      "samples": [
+        {"level": 1, "cost": 1, "damage": 1},
+        {"level": 2, "cost": 1, "damage": 2},
+        {"level": 3, "cost": 3, "damage": 3},
+        {"level": 4, "cost": 5, "damage": 4},
+        {"level": 5, "cost": 10, "damage": 5},
+        {"level": 6, "cost": 30, "damage": 10},
+        {"level": 9, "cost": 125, "damage": 25},
+        {"level": 10, "cost": 250, "damage": 50},
+        {"level": 13, "cost": 625, "damage": 125},
+        {"level": 14, "cost": 1250, "damage": 250},
+        {"level": 30, "cost": 781250, "damage": 156250},
+        {"level": 1761, "cost": 1.7610509143420668e+308, "damage": 3.5221018286841336e+307}
+      ],
+      "max_level": 1761,
+      "csv": "C:/Users/hp/AppData/Local/hermes/cache/scratch/idle-lumberjack/tables/axe_upgrades.csv"
+    },
+    "sawmill_upgrade_table": {
+      "status": "VERIFIED",
+      "source": "resources.assets 'Default Sawmill Upgrades Settings' (SawmillUpgradesSettings, path_id 11085), List{item:int level; int treeTypeIndex; double cost; float maxCapacity; float idleIncomePerHour; bool} stride 28",
+      "rows": 1761,
+      "cost_growth_per_level_median": 1.5,
+      "cost_growth_pattern": "×1.5, ×1.5, ×1.3333, ×1.25 repeating per tree type (= ×5.0 per 4 levels)",
+      "levels_per_tree_type": "5 for tree type 1, then 4 for every following type (5 + 439*4 = 1761)",
+      "capacity_ladder_per_tree_type": [150, 300, 450, 600, 750],
+      "idle_income_per_hour_ladder": [30, 60, 90, 120, 150],
+      "capacity_over_production_hours": 5.0,
+      "samples": [
+        {"level": 1, "treeTypeIndex": 1, "cost": 5, "maxCapacity": 150, "idleIncomePerHour": 30},
+        {"level": 2, "treeTypeIndex": 1, "cost": 10, "maxCapacity": 300, "idleIncomePerHour": 60},
+        {"level": 5, "treeTypeIndex": 1, "cost": 25, "maxCapacity": 750, "idleIncomePerHour": 150},
+        {"level": 6, "treeTypeIndex": 2, "cost": 30, "maxCapacity": 300, "idleIncomePerHour": 60},
+        {"level": 10, "treeTypeIndex": 3, "cost": 50, "maxCapacity": 300, "idleIncomePerHour": 60},
+        {"level": 11, "treeTypeIndex": 3, "cost": 90, "maxCapacity": 450, "idleIncomePerHour": 90},
+        {"level": 14, "treeTypeIndex": 4, "cost": 312.5, "maxCapacity": 300, "idleIncomePerHour": 60}
+      ],
+      "max_level": 1761,
+      "csv": "C:/Users/hp/AppData/Local/hermes/cache/scratch/idle-lumberjack/tables/sawmill_upgrades.csv"
+    },
+    "tree_table": {
+      "status": "VERIFIED",
+      "source": "resources.assets 'Default Common Trees Settings' (CommonTreesSettings path_id 11084), DictionarySerialized<int,TreeSetting>{int treeTypeNumber; double lives; double coinsIncomePerWholeTree; Vector2 growTimeRange} stride 28, list count 440",
+      "rows": 440,
+      "hp_formula": "lives = 5^treeTypeNumber",
+      "coins_formula": "coinsIncomePerWholeTree = 5^(treeTypeNumber-1)",
+      "growth_per_tree_type": 5.0,
+      "grow_time_range": {"min": 999999.0, "max": 100000000.0, "status": "VERIFIED", "note": "growTimeRange stored as (999999, 1e8) for every row -> effectively no natural regrow in this asset"},
+      "samples": [
+        {"treeTypeNumber": 1, "lives": 5, "coins": 1},
+        {"treeTypeNumber": 2, "lives": 25, "coins": 5},
+        {"treeTypeNumber": 3, "lives": 125, "coins": 25},
+        {"treeTypeNumber": 4, "lives": 625, "coins": 125},
+        {"treeTypeNumber": 5, "lives": 3125, "coins": 625},
+        {"treeTypeNumber": 10, "lives": 9765625, "coins": 1953125},
+        {"treeTypeNumber": 440, "lives": 3.5221018286841336e+307, "coins": 7.044203657368268e+306}
+      ],
+      "csv": "C:/Users/hp/AppData/Local/hermes/cache/scratch/idle-lumberjack/tables/trees.csv"
+    },
+    "derived_ratios": {
+      "hits_to_fell_tree_1_at_axe_lvl_1": {"value": 5, "status": "INFERRED", "note": "ceil(HP/damage) = ceil(5/1)"},
+      "axe_levels_needed_per_tree_type_to_hold_hits_constant": {"value": 3.97, "status": "INFERRED", "note": "log(5)/log(1.5)"},
+      "trees_of_current_type_to_afford_one_shot_axe": {"value": 25, "status": "INFERRED", "note": "cost(level for damage>=HP)/coins(type) = 25 for types 2..12; constant by design"},
+      "trees_of_current_type_to_afford_5_hit_axe": {"value": 5, "status": "INFERRED", "note": "same ratio at the '5 hits per tree' target"},
+      "sawmill_cost_in_trees_of_current_type": {"value": "5,6,7,8,9 per tree type (types 1-2), then ~2-5 (type 3+)", "status": "INFERRED", "note": "from sawmill_upgrades.csv cost / trees.csv coins"}
+    },
+    "zones": {
+      "tree_fields_total": {"value": 48, "status": "VERIFIED", "source": "resources.assets 'Tree Fields Settings' (path_id 11053) TreesZoneSettings.treesFields list count"},
+      "fields_in_zone": {"value": 4, "status": "VERIFIED", "source": "same object, TreesZoneSettings.fieldsInZone @ 0x1C (payload 16)"},
+      "is_zoning_enabled": {"value": true, "status": "VERIFIED", "source": "TreesZoneSettings.isZoningEnabled @ 0x18 (payload 12) = 1"},
+      "zone_count": {"value": 12, "status": "INFERRED", "note": "48 fields / 4 fields per zone"},
+      "field_length_range_m": {"value": [50, 65], "status": "VERIFIED", "source": "first TreesFieldView.fieldLengthRange = (50,65), fieldLength = 60"},
+      "zone_label_term": {"value": "zone {0}", "status": "VERIFIED", "source": "I2Languages term zone_number_on_billboard"},
+      "ambient_zones_authored": {"value": 5, "status": "VERIFIED", "source": "Sound SO instances 'Forest Ambient zone 1..5'"}
+    },
+    "pets_helpers": {
+      "pets": {"value": ["fox", "bear"], "status": "VERIFIED", "source": "resources.assets 'Upgradable Pets Settings' (path_id 11074) - 2 entries 'Pets/fox_name', 'Pets/bear_name' with GuidReferences"},
+      "pet_upgrade_data": {"value": "PetsUpgradeData : SavedPetsData<float>; per-pet level data in UpgradablePetsSettings", "status": "VERIFIED", "source": "dump.cs"},
+      "upgrade_costs": {"value": null, "status": "UNKNOWN", "source": "pet upgrade table not decoded in this pass"}
+    }
+  },
+
+  "idle_offline": {
+    "production_field": {"value": "SawmillUpgradesSettings.SawmillUpgradeSetting.idleIncomePerHour @ 0x24 (30..150 per level, resets per tree type)", "status": "VERIFIED", "source": "table + disassembly: get_CapacityPerHours() returns [x0+0x24] of CurrentUpgradeSetting"},
+    "capacity_field": {"value": "SawmillUpgradeSetting.maxCapacity @ 0x20 (150..750 per level)", "status": "VERIFIED", "source": "disassembly: get_MaxCapacity() returns [x0+0x20]"},
+    "offline_cap_hours": {"value": 5.0, "status": "INFERRED", "note": "capacity / productionPerHour = 150/30 = 300/60 = 450/90 = 600/120 = 750/150 = 5.0 h at every one of the 1761 levels"},
+    "offline_time_tracker": {"value": "Utilities.OfflineTimeTracker (ApplicationOfflineTimeHours / ApplicationOfflineTimeSeconds, OnApplicationPause, persisted close time)", "status": "VERIFIED", "source": "dump.cs TypeDefIndex 4202"},
+    "capacity_persistence": {"value": "SawmillUpgradeData.SavedCapacity / SaveCapacity / RestoreCapacity + savedCapacityPrefsKey (PlayerPrefs)", "status": "VERIFIED", "source": "dump.cs SawmillUpgradeData + SawmillUpgradeUI"},
+    "ui_surface": {"value": "sawmill dialog titled 'Idle Income LVL. {0}', body '+ {0} capacity', 'production per hour:'", "status": "VERIFIED", "source": "I2Languages terms sawmill_dialog_title / sawmill_dialog_capacity / sawmill_dialog_production_per_hour"},
+    "auto_collect_cadence": {"value": "SawmillUpgradeData.CapacityPerSecond getter exists (productionPerHour/3600); UI recomputes per frame in UpdateCapacity(deltaTime); no timer-based push-notification reward found", "status": "VERIFIED", "source": "dump.cs SawmillUpgradeData/ SawmillUpgradeUI method set"}
+  },
+
+  "feedback": {
+    "haptics": {
+      "tree_hit": {"value": 4, "enum": "LightImpact", "status": "VERIFIED", "source": "resources.assets 'Vibro Controller' (path_id 10995) payload ints after the SoundData PPtr = [4, 7, 4]; HapticTypes enum: Selection=0,Success=1,Warning=2,Failure=3,LightImpact=4,MediumImpact=5,HeavyImpact=6,None=7"},
+      "collectable_collect": {"value": 7, "enum": "None", "status": "VERIFIED", "source": "same object"},
+      "tree_selling": {"value": 4, "enum": "LightImpact", "status": "VERIFIED", "source": "same object"}
+    },
+    "sound_families": {
+      "value": 57,
+      "status": "VERIFIED",
+      "source": "57 'Sound' ScriptableObject instances in resources.assets",
+      "examples": ["UI Click Sound", "UI Buy Item Sound", "UI Axe level Sound", "17 impact sounds: Axe Hit, Axe Splitted Hit, Sword Hit, WarAxe Hit, SilverAxe Hit, Hammer Hit, Scythe Hit, Machete Hit, Mace1 Hit, Mace2 Hit, Greatsword Hit, Hook Hit, Crucible Hit, Berdysh Hit, Kubikiribocho Hit, Lostvayne Hit, Super Hit", "Tree Сhop", "Tree Demolition", "Tree Sell", "Tree Get", "Bonus Collect Apple/Leaf/Mushroom/Seed/coins", "Bonus Tree 1..3 Grow", "Money Tree Сhop", "Fury Attack", "Whirl Attack", "Fox Hole Dig", "Ent_spawn", "Buildings Activate", "Forest Ambient zone 1..5", "Step zone 1/3/4", "River"]
+    },
+    "audio_clips": {"value": 54, "status": "VERIFIED", "source": "data.unity3d object census"},
+    "particle_systems": {"value": 171, "status": "VERIFIED", "source": "data.unity3d object census (171 ParticleSystem + 171 ParticleSystemRenderer)"},
+    "camera_shake": {"value": "Cinemachine 67 impulse references; ECCameraShake / ECCameraShakeCaller / CameraShakeSimpleScript classes", "status": "VERIFIED", "source": "dump.cs"},
+    "scene_complexity": {
+      "objects_in_bundle": {"value": 19492, "status": "VERIFIED", "source": "UnityPy census of data.unity3d"},
+      "monobehaviours": 4065,
+      "gameobjects": 3896,
+      "meshes": 560,
+      "materials": 204,
+      "canvases": 5
+    }
+  },
+
+  "onboarding": {
+    "objective_banner_rows": {"value": ["CHOP WOOD", "SELL WOOD", "POWER UP!"], "status": "VERIFIED", "source": "I2Languages tutorial_row_3, tutorial_row_2, tutorial_row_1"},
+    "joystick_hint": {"value": "DRAG FINGER TO MOVE", "status": "VERIFIED", "source": "I2Languages joystick_tutorial"},
+    "skip_button": {"value": "LET ME PLAY!!", "status": "VERIFIED", "source": "I2Languages close_tutorial_button"},
+    "playerprefs_flags": {"value": ["UserHasSeenTutorial", "PlayerPassedJoySttickTutorial"], "status": "VERIFIED", "source": "il2cpp stringliteral.json"},
+    "teleport_tutorial_copy": {"value": "Hey! It's a teleport artifact. Let's check how it works!", "status": "VERIFIED", "source": "I2Languages teleport_title"}
+  },
+
+  "ui_copy": {
+    "grindstone_dialog_title": "Weapon Damage LVL. {0}",
+    "grindstone_dialog_sharpen_axe": "upgrade weapon: + {0} damage",
+    "grindstone_dialog_damage": "damage: {0}",
+    "sawmill_dialog_title": "Idle Income LVL. {0}",
+    "sawmill_dialog_capacity": "+ {0} capacity",
+    "sawmill_dialog_production_per_hour": "production per hour:",
+    "sawmill_dialog_productivity": "+ {0} production",
+    "upgrade_button_max_lvl_msg": "Max LVL",
+    "no_ads_dialog_description": "Purchasing \"No Ads\" will remove fullscreen ads; you can still choose to watch ads to receive in-game bonuses.",
+    "next_zone_dialog_description": "Do you wish to move your home here?",
+    "zone_number_on_billboard": "zone {0}",
+    "status": "VERIFIED",
+    "source": "resources.assets I2Languages LanguageSourceAsset (path_id 10859), 62 terms x 4 locales"
+  },
+
+  "store_metadata": {
+    "store_subtitle": {"value": "Chop & Sell!", "status": "VERIFIED", "source": "I2Languages app_store_subtitle"},
+    "store_promo": {"value": "Become the strongest woodcutter in the magic forest!", "status": "VERIFIED", "source": "I2Languages app_store_promotional"},
+    "store_description": {"value": "Chop the trees, sell them and buy upgrades! There are different types of trees. The further you go the more expensive trees you get. You can also find magical golden trees which contain bonuses.", "status": "VERIFIED", "source": "I2Languages app_store_description"}
+  }
+}

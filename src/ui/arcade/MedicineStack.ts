@@ -31,6 +31,8 @@ export class MedicineStack {
   private readonly kSpring = 38.0;
   private readonly damping = 12.33; // 2 * sqrt(38.0)
   private lastVel = new THREE.Vector2(0, 0);
+  private readonly velScratch = new THREE.Vector2(0, 0);
+  private readonly accelScratch = new THREE.Vector2(0, 0);
 
   constructor(options: MedicineStackOptions) {
     this.anchor = options.anchor;
@@ -117,10 +119,10 @@ export class MedicineStack {
    */
   public update(delta: number, moveVector?: THREE.Vector2): void {
     const dt = Math.max(0.001, Math.min(0.05, delta));
-    const currentVel = moveVector ? moveVector.clone() : new THREE.Vector2(0, 0);
+    const currentVel = moveVector ? this.velScratch.copy(moveVector) : this.velScratch.set(0, 0);
 
     // Acceleration: a = (v(t) - v(t - dt)) / dt
-    const accel = new THREE.Vector2(
+    const accel = this.accelScratch.set(
       (currentVel.x - this.lastVel.x) / dt,
       (currentVel.y - this.lastVel.y) / dt
     );

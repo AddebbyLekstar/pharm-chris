@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { quality } from './quality';
 
 export interface ArcadeViewportOptions {
   scene?: THREE.Scene | THREE.Group;
@@ -14,6 +15,7 @@ export class ArcadeViewport {
   public targetOffset: THREE.Vector3 = new THREE.Vector3(12, 16, 12);
   public cameraTarget: THREE.Vector3 = new THREE.Vector3(0, 1, 0);
   private resizeObserver: any = null;
+  private readonly desiredCamPos = new THREE.Vector3();
 
   constructor(options?: ArcadeViewportOptions) {
     if (options?.scene instanceof THREE.Scene) {
@@ -34,13 +36,14 @@ export class ArcadeViewport {
       this.renderer = options.renderer;
     } else if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       try {
+        const q = quality();
         this.renderer = new THREE.WebGLRenderer({
-          antialias: true,
+          antialias: q.antialias,
           powerPreference: 'high-performance',
           alpha: false,
         });
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.enabled = q.shadows;
+        this.renderer.shadowMap.type = q.shadows ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.15;
       } catch (e) {
@@ -98,7 +101,10 @@ export class ArcadeViewport {
 
     if (this.renderer) {
       this.renderer.setSize(w, h, false);
-      this.renderer.setPixelRatio(typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1);
+      const q = quality();
+      this.renderer.setPixelRatio(
+        typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, q.maxPixelRatio) : 1
+      );
     }
   }
 
@@ -107,8 +113,8 @@ export class ArcadeViewport {
     const lerpFactor = Math.min(1, delta * 5);
     this.cameraTarget.lerp(targetPos, lerpFactor);
 
-    const desiredCamPos = this.cameraTarget.clone().add(this.targetOffset);
-    this.camera.position.lerp(desiredCamPos, lerpFactor);
+    this.desiredCamPos.copy(this.cameraTarget).add(this.targetOffset);
+    this.camera.position.lerp(this.desiredCamPos, lerpFactor);
     this.camera.lookAt(this.cameraTarget);
   }
 

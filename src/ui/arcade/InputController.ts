@@ -27,6 +27,8 @@ export class InputController {
   private joystickKnobEl: HTMLElement | null = null;
   private isMouseDown: boolean = false;
   private mouseIdentifier: number = -999;
+  /** Reused so the per-frame direction read never allocates. */
+  private readonly dirScratch = new THREE.Vector2();
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -155,7 +157,7 @@ export class InputController {
 
   private isIgnoredTarget(e: Event): boolean {
     const target = e.target as Element | null;
-    return !!target?.closest?.('button, .arcade-dialogue-card');
+    return !!target?.closest?.('button, .arcade-dialogue-card, #pharm-hud button, #pharm-drawer, #pharm-modal-host');
   }
 
   private onTouchStart = (e: TouchEvent): void => {
@@ -237,17 +239,15 @@ export class InputController {
     if (this.keys['KeyA'] || this.keys['ArrowLeft']) x -= 1;
     if (this.keys['KeyD'] || this.keys['ArrowRight']) x += 1;
 
-    const keyboardVec = new THREE.Vector2(x, y);
-    if (keyboardVec.lengthSq() > 0) {
-      keyboardVec.normalize();
-      return keyboardVec;
+    if (x !== 0 || y !== 0) {
+      return this.dirScratch.set(x, y).normalize();
     }
 
     if (this.joystick.active && this.joystick.vector.lengthSq() > 0.01) {
-      return this.joystick.vector.clone();
+      return this.dirScratch.copy(this.joystick.vector);
     }
 
-    return new THREE.Vector2(0, 0);
+    return this.dirScratch.set(0, 0);
   }
 
   public dispose(): void {

@@ -1,18 +1,34 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import * as THREE from 'three';
 import { ArcadeGameDirector } from '../../src/ui/arcade/ArcadeGameDirector';
 import { PharmChrisEngine } from '../../src/sim/engine';
+import { StoreRun, shelfCategoryOf, PRODUCTS_BY_ID } from '../../src/sim/progression';
 
-describe('Task 7: ArcadeGameDirector Integration', () => {
+/**
+ * Integration tests for the arcade shell. The economy (StoreRun) owns every
+ * number; the 3D layer is a view. These tests drive the real tick loop and
+ * assert the view and the simulation agree.
+ */
+describe('ArcadeGameDirector — economy integration', () => {
   let engine: PharmChrisEngine;
+  let run: StoreRun;
   let director: ArcadeGameDirector;
+
+  const walkTo = (zoneId: string) => {
+    const zone = director.zoneManager.getZone(zoneId)!;
+    director.player.position.copy(zone.position);
+  };
+
+  const tickFor = (seconds: number, step = 0.1) => {
+    for (let t = 0; t < seconds; t += step) director.tick(step);
+  };
 
   beforeEach(() => {
     engine = new PharmChrisEngine();
-    director = new ArcadeGameDirector({ engine });
+    run = StoreRun.create({ seed: 3 });
+    director = new ArcadeGameDirector({ engine, run });
   });
 
-  it('initializes all sub-modules coherently', () => {
+  it('initializes every subsystem against the supplied run', () => {
     expect(director.viewport).toBeDefined();
     expect(director.scene).toBeDefined();
     expect(director.player).toBeDefined();
@@ -22,74 +38,121 @@ describe('Task 7: ArcadeGameDirector Integration', () => {
     expect(director.customerQueue).toBeDefined();
     expect(director.cashManager).toBeDefined();
     expect(director.juice).toBeDefined();
+    expect(director.staff).toBeDefined();
+    expect(director.run).toBe(run);
+    expect(director.stack.maxCapacity).toBe(run.carryCapacity);
   });
 
-  it('runs game loop tick updating player, queue, and physics', () => {
-    expect(() => {
-      director.tick(0.016);
-    }).not.toThrow();
+  it('runs the loop without throwing when nothing is happening', () => {
+    expect(() => tickFor(2)).not.toThrow();
   });
 
-  it('handles cash drops from counter transactions into engine funds', () => {
-    const initialFunds = engine.getState().cash;
-    // Spawn cash at player position
-    director.cashManager.spawnCash(director.player.position.clone(), 1500);
-    director.tick(0.016);
+  it('banks a real sale into the economy once the player picks the cash up', () => {
+    // Wait for a customer the run actually generated.
+    let guard = 0;
+    while (!run.queue.length && guard++ < 200) director.tick(0.1);
+    expect(run.queue.length).toBeGreaterThan(0);
+    const wanted = run.queue[0].category;
 
-    expect(engine.getState().cash).toBe(initialFunds + 1500);
+    // Stock the shelf so the sale can go through.
+    const product = run.productsForShelf(wanted)[0];
+    for (let i = 0; i < 3; i++) {
+      if (!run.loadBox(product.id).ok) break;
+      if (!run.stockShelf(wanted).ok) break;
+    }
+
+    // Stand at the register first: cash drops where the sale happened.
+    walkTo('counter_cashier');
+    const sale = run.serveFront(false);
+    expect(sale.ok).toBe(true);
+    const before = run.cash;
+
+    // One tick drains the cash_dropped event into a 3D bundle beside the player.
+    director.tick(0.1);
+    expect(director.cashManager.activeCashCount).toBe(1);
+    for (let i = 0; i < 60; i++) director.tick(0.05);
+
+    expect(run.cash).toBe(before + (sale.revenue ?? 0));
+    expect(run.pendingCash.length).toBe(0);
   });
 
-  it('executes floor upgrade application properly', () => {
-    const initialMaxCapacity = director.stack.maxCapacity;
+  it('buys stock at the dock and puts the crate on the player stack', () => {
+    walkTo('dock');
+    const before = run.cash;
+    tickFor(1.5);
+    expect(run.cash).toBeLessThan(before);
+    expect(director.stack.count).toBeGreaterThan(0);
+    expect(run.state.carriedBoxes.length).toBe(director.stack.count);
+  });
+
+  it('stocks the matching shelf and mirrors the number into the 3D view', () => {
+    walkTo('dock');
+    tickFor(0.6);
+    const carried = run.state.carriedBoxes[0];
+    expect(carried).toBeDefined();
+    const product = PRODUCTS_BY_ID.get(carried.productId)!;
+    const category = shelfCategoryOf(product);
+    const before = run.shelfLevels[category];
+
+    walkTo(`shelf_${category === 'cold_chain' ? 'cold_chain' : category}`);
+    tickFor(0.5);
+
+    expect(run.shelfLevels[category]).toBeGreaterThan(before);
+    expect(director.shelves.getStock(category)).toBe(run.shelfLevels[category]);
+  });
+
+  it('serves the queue at the counter and drops cash on the floor', () => {
+    // Wait for a customer, then stand at the register.
+    tickFor(9);
+    expect(run.queue.length).toBeGreaterThan(0);
+    const wanted = run.queue[0].category;
+    // Make sure the shelf can fill the basket.
+    for (let i = 0; i < 3; i++) {
+      const product = run.productsForShelf(wanted)[0];
+      run.loadBox(product.id);
+      run.stockShelf(wanted);
+    }
+    walkTo('counter_cashier');
+    tickFor(6);
+
+    expect(run.stats.customersServed).toBeGreaterThan(0);
+    expect(run.stats.revenue).toBeGreaterThan(0);
+  });
+
+  it('applies upgrades through the economy and the view', () => {
+    const beforeCapacity = director.stack.maxCapacity;
+    const beforeSpeed = director.player.speedMultiplier;
+    run.buyUpgrade('carry');
+    run.buyUpgrade('speed');
     director.applyUpgrade('upgrade_stack');
-    expect(director.stack.maxCapacity).toBeGreaterThan(initialMaxCapacity);
-
-    const initialSpeed = director.player.speedMultiplier;
     director.applyUpgrade('upgrade_speed');
-    expect(director.player.speedMultiplier).toBeGreaterThan(initialSpeed);
+    expect(director.stack.maxCapacity).toBeGreaterThan(beforeCapacity);
+    expect(director.player.speedMultiplier).toBeGreaterThan(beforeSpeed);
   });
 
-  it('shows floating text warning when shelf is empty at checkout counter', () => {
-    // Move player to cashier counter zone
-    const counterZone = director.zoneManager.getZone('counter_cashier')!;
-    director.player.position.copy(counterZone.position);
-
-    // Deplete antimalarial shelf stock
-    const malarStock = director.shelves.getStock('antimalarial');
-    director.shelves.consumeStock('antimalarial', malarStock);
-
-    // Inject a non-story customer wanting antimalarial at counter
-    const genericCust = {
-      ...engine.getCurrentCustomer(),
-      id: 'cust_rush_need_malar',
-      matchedProductIds: ['prd_malaguard_forte'],
-    };
-    director.customerQueue.injectCustomer(genericCust, 'serving');
-
-    // Tick director
-    director.tick(0.016);
-
-    // Check floating text in juice
-    // Juice records floating text
-    const texts = (director.juice as any).floatingTexts;
-    expect(texts.length).toBeGreaterThan(0);
-    expect(texts[0].text).toContain('SHELF EMPTY: ANTIMALARIAL!');
+  it('shows staff in the 3D scene only when they are actually hired', () => {
+    expect(director.staff.group.children.length).toBe(0);
+    run.hire('cashier');
+    director.staff.sync(run);
+    expect(director.staff.group.children.length).toBe(1);
+    run.fire('cashier');
+    director.staff.sync(run);
+    expect(director.staff.group.children.length).toBe(0);
   });
 
-  it('handles dialogue cancellation without stalling queue at counter', () => {
-    const counterZone = director.zoneManager.getZone('counter_cashier')!;
-    director.player.position.copy(counterZone.position);
+  it('rebuilds expansion geometry without leaving the old meshes behind', () => {
+    const before = director.scene.group.children.length;
+    run.expand();
+    director.syncFromRun();
+    const afterFirst = director.scene.group.children.length;
+    expect(afterFirst).toBeGreaterThan(before);
+    director.syncFromRun();
+    expect(director.scene.group.children.length).toBe(afterFirst);
+  });
 
-    // Story customer at counter
-    const storyCustData = { ...engine.getCurrentCustomer(), id: 'cust_mama_ngozi' };
-    const storyCust = director.customerQueue.injectCustomer(storyCustData, 'serving');
-
-    director.tick(0.016);
-    expect(director.dialogueModal.isOpen).toBe(true);
-
-    // Cancel/decline dialogue
-    director.dialogueModal.close();
-    expect(director.dialogueModal.isOpen).toBe(false);
-    expect(storyCust.state).toBe('leaving');
+  it('reports renderer counters for the performance budget', () => {
+    const perf = director.perfStats();
+    expect(typeof perf.drawCalls).toBe('number');
+    expect(typeof perf.frameMs).toBe('number');
   });
 });

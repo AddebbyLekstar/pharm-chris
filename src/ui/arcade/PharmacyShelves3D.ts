@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { Product } from '../../sim/types';
-import { ArcadeScene } from './ArcadeScene';
 
 export function normalizeCategory(cat: string): string {
   const c = (cat || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -52,7 +51,8 @@ export class PharmacyShelves3D {
       capacity: 20,
     },
   ];
-  private displayBoxMeshes: Map<string, THREE.Mesh[]> = new Map();
+  private displayBoxMeshes: Map<string, THREE.InstancedMesh> = new Map();
+  private capacity: number = 30;
 
   constructor(initialProducts?: Product[]) {
     this.group = new THREE.Group();
@@ -116,10 +116,6 @@ export class PharmacyShelves3D {
         shelfBay.add(fridgeLight);
       }
 
-      // Grounded contact shadow beneath shelf bay
-      const shelfShadow = ArcadeScene.createContactShadow(0.85, 0.35);
-      shelfShadow.scale.set(1.15, 0.8, 1);
-      shelfBay.add(shelfShadow);
 
       // Category Header Label plate
       const plateGeo = new THREE.BoxGeometry(1.5, 0.3, 0.15);
@@ -131,26 +127,28 @@ export class PharmacyShelves3D {
       plate.position.set(0, 2.7, conf.position.x < 0 ? 0.5 : -0.5);
       shelfBay.add(plate);
 
-      // Display boxes array
+      // Display boxes: one InstancedMesh per bay (9 draws -> 1 draw per bay).
       const boxGeo = new THREE.BoxGeometry(0.35, 0.18, 0.24);
       const boxMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(conf.color),
         roughness: 0.4,
       });
-
-      const boxList: THREE.Mesh[] = [];
+      const instanced = new THREE.InstancedMesh(boxGeo, boxMat, 9);
+      const matrix = new THREE.Matrix4();
+      let index = 0;
       for (let r = 0; r < 3; r++) {
         for (let c = 0; c < 3; c++) {
-          const box = new THREE.Mesh(boxGeo, boxMat);
           const xOffset = (c - 1) * 0.42;
           const yOffset = 0.6 + r * 0.65;
           const zOffset = conf.position.x < 0 ? 0.35 : -0.35;
-          box.position.set(xOffset, yOffset, zOffset);
-          shelfBay.add(box);
-          boxList.push(box);
+          matrix.makeTranslation(xOffset, yOffset, zOffset);
+          instanced.setMatrixAt(index++, matrix);
         }
       }
-      this.displayBoxMeshes.set(conf.category, boxList);
+      instanced.instanceMatrix.needsUpdate = true;
+      instanced.frustumCulled = false;
+      shelfBay.add(instanced);
+      this.displayBoxMeshes.set(conf.category, instanced);
       this.group.add(shelfBay);
     }
 
@@ -168,6 +166,18 @@ export class PharmacyShelves3D {
       total += val;
     }
     return total;
+  }
+
+  /** View-only sync from the simulation (the economy owns the numbers). */
+  public setStock(category: string, amount: number): void {
+    const key = normalizeCategory(category);
+    this.stockLevels.set(key, Math.max(0, amount));
+    this.updateVisuals();
+  }
+
+  public setCapacity(capacity: number): void {
+    this.capacity = Math.max(1, capacity);
+    this.updateVisuals();
   }
 
   public addStock(category: string, amount: number = 1): void {
@@ -195,12 +205,10 @@ export class PharmacyShelves3D {
   }
 
   public updateVisuals(): void {
-    for (const [cat, boxes] of this.displayBoxMeshes.entries()) {
+    for (const [cat, instanced] of this.displayBoxMeshes.entries()) {
       const stock = this.getStock(cat);
-      const visibleCount = Math.min(boxes.length, Math.ceil((stock / 15) * boxes.length));
-      for (let i = 0; i < boxes.length; i++) {
-        boxes[i].visible = i < visibleCount;
-      }
+      const count = Math.max(0, Math.min(9, Math.ceil((stock / Math.max(6, this.capacity)) * 9)));
+      instanced.count = count;
     }
   }
 }
