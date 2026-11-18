@@ -63,6 +63,15 @@ curl -s http://127.0.0.1:9222/json | head -c 200      # title must be the app, n
 node scripts/check-android.mjs --cdp http://127.0.0.1:9222
 ```
 
+### Screenshots on Android must come from the framebuffer
+
+`Page.captureScreenshot` over CDP returns the DOM layer only on Android WebView — the
+WebGL canvas comes back black even while the game is rendering. The first Android
+"evidence" of this build looked like a render failure for exactly that reason; the
+device framebuffer (`adb exec-out screencap -p`) showed the shop correctly.
+`check-android.mjs` now writes the framebuffer capture and only falls back to CDP if
+`adb` is unavailable.
+
 ## What the gates assert
 
 `scripts/check-mobile.mjs` (7 viewports: 320, 360, 390, 414, 768, 1280, 1920) and
@@ -91,3 +100,13 @@ a 6×-throttled phone pass.
 The Android frame time on the emulator (p50 66.7 ms) is SwiftShader software
 rendering. It is not evidence about a real phone GPU, and should not be quoted as
 performance.
+
+## Known gaps
+
+- **Naira glyph on AOSP.** In the emulator's WebView the HUD shows `N145k`, `N4.2m`,
+  `N60k` — the AOSP font stack has no U+20A6, so `₦` falls back to a bare `N`. PC
+  boxes render the sign correctly. Fix is a bundled webfont subset carrying U+20A6 in
+  the HUD font stack; not yet done, and it needs a check on a real Tecno/Infinix.
+- **No iOS/Safari pass.** Safari's `100vh`, touch handling and font stack are untested.
+- **No 90-day browser soak.** Season logic is proven by `tests/season_bot.test.ts`, not
+  by playing 90 days in a browser; long-session heap growth is unmeasured.

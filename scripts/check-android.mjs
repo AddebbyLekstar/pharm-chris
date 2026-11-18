@@ -12,6 +12,7 @@
  *   node scripts/check-android.mjs [--cdp http://127.0.0.1:9222] [--url http://localhost:4173/]
  */
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const args = process.argv.slice(2);
 const arg = (name, fallback) => {
@@ -203,9 +204,17 @@ const frames = await evaluate('window.pharmChris.director.frameTimes.slice(-240)
 const pct = (arr, p) => (arr.length ? +(arr[Math.min(arr.length - 1, Math.floor(arr.length * p))] * 1000).toFixed(1) : null);
 const state = await evaluate('window.pharmChris.state()');
 
-const shot = await send('Page.captureScreenshot', { format: 'png' });
 const shotPath = `${OUT}/android-${env.viewport.replace('x', '-')}.png`;
-fs.writeFileSync(shotPath, Buffer.from(shot.data, 'base64'));
+// Page.captureScreenshot on Android WebView returns the DOM layer only: the WebGL
+// surface comes back black. The device framebuffer is the honest picture.
+try {
+  const png = execFileSync('adb', ['exec-out', 'screencap', '-p'], { maxBuffer: 32 * 1024 * 1024 });
+  fs.writeFileSync(shotPath, png);
+} catch (err) {
+  const shot = await send('Page.captureScreenshot', { format: 'png' });
+  fs.writeFileSync(shotPath.replace('.png', '-cdp.png'), Buffer.from(shot.data, 'base64'));
+  console.error('adb screencap failed, wrote CDP screenshot instead (canvas may be blank):', err.message);
+}
 
 const report = {
   target: 'android',
