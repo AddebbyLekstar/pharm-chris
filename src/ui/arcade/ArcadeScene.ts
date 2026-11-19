@@ -99,16 +99,10 @@ export class ArcadeScene {
     const grid = this.group.getObjectByName('pharm-floor-grid');
     if (grid) grid.visible = false;
 
-    for (const name of ['pharm-wall-back', 'pharm-wall-west', 'pharm-wall-east']) {
-      const wall = this.group.getObjectByName(name) as THREE.Mesh | undefined;
-      if (!wall) continue;
-      const mat = wall.material as THREE.MeshStandardMaterial;
-      mat.map = tex.wall;
-      mat.color.setHex(0xffffff);
-      mat.roughness = 0.86;
-      mat.metalness = 0.0;
-      mat.needsUpdate = true;
-    }
+    // Walls: no map on purpose. The dark-green tile texture multiplied every tint
+    // into the same murky green, so the room read as one dark box. Plaster at 0.86
+    // roughness is the surface; the colour IS the design — cream sides, one deep
+    // green accent wall. Nothing to override here, so the shell's materials stand.
 
     const counter = this.group.getObjectByName('pharm-counter') as THREE.Mesh | undefined;
     if (counter) {

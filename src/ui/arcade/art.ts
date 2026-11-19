@@ -68,9 +68,9 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
     // where the player spends the session read as interior; the fridge spills cool
     // teal on the cold chain so the room has a second colour temperature.
     ambient: { color: 0xf4f1ea, intensity: 0.08 },
-    sun: { color: 0xffe9c9, intensity: 2.35 },
-    hemisphere: { sky: 0xa8d4ff, ground: 0x6b4a30, intensity: 0.16 },
-    counterSpot: { color: 0xffd9a0, intensity: 1.5, distance: 8 },
+    sun: { color: 0xffe9c9, intensity: 2.6 },
+    hemisphere: { sky: 0xa8d4ff, ground: 0x8a6440, intensity: 0.24 },
+    counterSpot: { color: 0xffd9a0, intensity: 2.4, distance: 9 },
     crossGlow: { color: 0x2e8b8b, intensity: 1.0, distance: 6 },
   },
 };

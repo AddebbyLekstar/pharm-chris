@@ -61,15 +61,21 @@ export function buildRoomShell(options: RoomShellOptions = {}): THREE.Group {
   const outerX = ROOM.minX - WALL_T / 2;
   const outerXEast = ROOM.maxX + WALL_T / 2;
 
-  group.add(wall('pharm-wall-back', SHOP_W, H, WALL_T, 0, H / 2, outerZ));
-  group.add(wall('pharm-wall-west', WALL_T, H, SHOP_D + WALL_T * 2, outerX, H / 2, 0));
-  group.add(wall('pharm-wall-east', WALL_T, H, SHOP_D + WALL_T * 2, outerXEast, H / 2, 0));
+  group.add(wall('pharm-wall-back', SHOP_W, H, WALL_T, 0, H / 2, outerZ, PALETTE.deepGreen));
+  group.add(wall('pharm-wall-west', WALL_T, H, SHOP_D + WALL_T * 2, outerX, H / 2, 0, PALETTE.plasterCream));
+  group.add(wall('pharm-wall-east', WALL_T, H, SHOP_D + WALL_T * 2, outerXEast, H / 2, 0, PALETTE.plasterCream));
 
   // Front wall, split around a 2.2 m doorway that sits dead centre.
+  //
+  // The street side is cut to 0.9 m: the camera looks in from the front, so a
+  // full-height near wall hides the doorway — which is exactly where Chris enters
+  // and where the player spends the first thirty seconds. A shopfront kick wall
+  // keeps the section read and stops the occluded-character bug.
+  const FRONT_H = 0.9;
   const segmentWidth = (SHOP_W - DOOR_WIDTH) / 2;
   const segmentX = DOOR_WIDTH / 2 + segmentWidth / 2;
-  group.add(wall('pharm-wall-front-l', segmentWidth, H, WALL_T, -segmentX, H / 2, outerZFront));
-  group.add(wall('pharm-wall-front-r', segmentWidth, H, WALL_T, segmentX, H / 2, outerZFront));
+  group.add(wall('pharm-wall-front-l', segmentWidth, FRONT_H, WALL_T, -segmentX, FRONT_H / 2, outerZFront, PALETTE.plasterCream));
+  group.add(wall('pharm-wall-front-r', segmentWidth, FRONT_H, WALL_T, segmentX, FRONT_H / 2, outerZFront, PALETTE.plasterCream));
   // Header over the opening: without it the front wall is two pillars and a hole.
   group.add(
     wall('pharm-wall-front-header', DOOR_WIDTH, H - DOOR_HEIGHT, WALL_T, 0, DOOR_HEIGHT + (H - DOOR_HEIGHT) / 2, outerZFront)

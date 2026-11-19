@@ -74,12 +74,14 @@ export class ArcadePlayer {
     });
     // Spec 1.2: Crisp clinic white lab coat
     const coatMat = new THREE.MeshStandardMaterial({
-      color: 0xf8faf9,
+      // Deep green coat, not white: against a cream floor and cream walls a white
+      // coat disappears, and Chris spent the whole session blending into the room.
+      color: 0x1b4a3c,
       roughness: 0.35,
     });
     // Spec 1.2: Dark Lagos teal scrub trousers
     const scrubsMat = new THREE.MeshStandardMaterial({
-      color: 0x0d4a3e,
+      color: 0xf1e6cf,
       roughness: 0.50,
     });
     const shoeMat = new THREE.MeshStandardMaterial({
