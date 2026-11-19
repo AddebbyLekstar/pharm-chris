@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { quality } from './quality';
 import { LIGHTS, artVersion, bakeContactAO } from './art';
 import { textures } from './textures';
-import { WALKABLE, ROOM, SHOP_W, SHOP_D, COUNTER, boundsFor } from './layout';
+import { WALKABLE, ROOM, SHOP_W, SHOP_D, COUNTER, SHELF_BAYS, boundsFor } from './layout';
 import { buildRoomShell } from './kit/roomShell';
 import { chamferBox } from './kit/geometry';
 import { material } from './kit/materials';
@@ -30,7 +30,7 @@ export class ArcadeScene {
     this.buildPharmacyEnvironment();
     if (artVersion() !== 'v1') {
       this.finishArtPass();
-      if (artVersion() === 'v3') this.applySurfaceArt();
+      if (artVersion() === 'v3' || artVersion() === 'v4') this.applySurfaceArt();
       // Static geometry only: characters are added later by the director. Baking
       // last means the vertex-colour gradient multiplies whatever map is present
       // instead of being overwritten by one.
@@ -250,13 +250,17 @@ export class ArcadeScene {
 
     if (setup.counterSpot) {
       const counterSpot = new THREE.PointLight(setup.counterSpot.color, setup.counterSpot.intensity, setup.counterSpot.distance, 1.1);
-      counterSpot.position.set(0.0, 3.8, 1.5);
+      // Pendant over the counter: the lamp hangs from the implied ceiling, not from
+      // the old 3.8 m height that only worked in a 4.5 m room.
+      counterSpot.position.set(COUNTER.x, 2.55, COUNTER.z);
       this.group.add(counterSpot);
     }
 
     if (setup.crossGlow) {
       const crossGlow = new THREE.PointLight(setup.crossGlow.color, setup.crossGlow.intensity, setup.crossGlow.distance, 1.5);
-      crossGlow.position.set(0.0, 3.2, -7.5);
+      // Fridge light: cool teal at the cold-chain bay, the room's second temperature.
+      const cold = SHELF_BAYS.find((bay) => bay.category === 'cold_chain');
+      crossGlow.position.set(cold ? cold.x : 3.2, 1.8, cold ? cold.z : 0.6);
       this.group.add(crossGlow);
     }
   }
@@ -420,7 +424,7 @@ export class ArcadeScene {
     return { ...this.bounds };
   }
 
-  /** Full floor extent (16 x 18 m), which the camera must not look past. */
+  /** Interior faces of the walls, which the camera must not look past. */
   public getRoomBounds(): { minX: number; maxX: number; minZ: number; maxZ: number } {
     return { ...ROOM };
   }

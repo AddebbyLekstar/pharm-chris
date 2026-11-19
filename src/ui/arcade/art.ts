@@ -13,16 +13,16 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
  * Every version is reachable from one build so a look can be screenshotted
  * against its predecessor without a branch.
  */
-export type ArtVersion = 'v1' | 'v2' | 'v3';
+export type ArtVersion = 'v1' | 'v2' | 'v3' | 'v4';
 
 export function artVersion(search?: string): ArtVersion {
   const query = search ?? (typeof window !== 'undefined' ? window.location.search : '');
   const value = new URLSearchParams(query).get('art');
-  if (value === 'v1' || value === 'v2' || value === 'v3') return value;
-  // v3 is the shipped look: environment lighting plus procedural surface detail.
-  // The older passes stay reachable so a regression can be screenshotted against
-  // them from the same build.
-  return 'v3';
+  if (value === 'v1' || value === 'v2' || value === 'v3' || value === 'v4') return value;
+  // v4 is the shipped look: dollhouse shell, six material families, one key plus a
+  // pendant and the fridge. The older passes stay reachable so a regression can be
+  // screenshotted against them from the same build.
+  return 'v4';
 }
 
 export interface LightSetup {
@@ -61,6 +61,17 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
     hemisphere: { sky: 0x9fd4ff, ground: 0x5a3a20, intensity: 0.2 },
     counterSpot: null,
     crossGlow: { color: 0x00e676, intensity: 0.3, distance: 9 },
+  },
+  v4: {
+    // Three lights, each with a job: the sun comes through the front door and is
+    // the only shadow caster; a pendant lamp warms the counter so the two metres
+    // where the player spends the session read as interior; the fridge spills cool
+    // teal on the cold chain so the room has a second colour temperature.
+    ambient: { color: 0xf4f1ea, intensity: 0.08 },
+    sun: { color: 0xffe9c9, intensity: 2.35 },
+    hemisphere: { sky: 0xa8d4ff, ground: 0x6b4a30, intensity: 0.16 },
+    counterSpot: { color: 0xffd9a0, intensity: 1.5, distance: 8 },
+    crossGlow: { color: 0x2e8b8b, intensity: 1.0, distance: 6 },
   },
 };
 

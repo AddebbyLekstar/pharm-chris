@@ -1,0 +1,22 @@
+
+import * as THREE from "three";
+import { ArcadeViewport } from "./src/ui/arcade/ArcadeViewport";
+import { ArcadeScene } from "./src/ui/arcade/ArcadeScene";
+import { EXPANSION_BOUNDS, ZONES } from "./src/ui/arcade/layout";
+const scene = new ArcadeScene();
+const vp = new ArcadeViewport({ scene: scene.group });
+vp.setRoomBounds(scene.getRoomBounds());
+vp.setPlayableBounds(scene.getWalkableBounds());
+vp.resize(360, 800);
+console.log("after resize dist", vp.targetOffset.length().toFixed(2), "fill", vp.roomFill.toFixed(3));
+const z = ZONES.find(z=>z.id==="shelf_antibiotic")!;
+let p = new THREE.Vector3(z.x,0,z.z);
+for (let i=0;i<80;i++) vp.updateCameraFollow(p,0.1);
+vp.camera.updateMatrixWorld(true);
+const proj = new THREE.Vector3(z.x,0,z.z).project(vp.camera);
+console.log("zone px", ((proj.x+1)/2*360).toFixed(1), "target", vp.cameraTarget.toArray().map(n=>n.toFixed(2)).join(","), "cam", vp.camera.position.toArray().map(n=>n.toFixed(1)).join(","));
+const before = vp.camera.position.distanceTo(vp.cameraTarget);
+vp.setRoomBounds(EXPANSION_BOUNDS[1].room);
+vp.setPlayableBounds(EXPANSION_BOUNDS[1].walkable);
+vp.resize(360, 800);
+console.log("exp before", before.toFixed(2), "after", vp.camera.position.distanceTo(vp.cameraTarget).toFixed(2), "dist", vp.targetOffset.length().toFixed(2), "fill", vp.roomFill.toFixed(3));

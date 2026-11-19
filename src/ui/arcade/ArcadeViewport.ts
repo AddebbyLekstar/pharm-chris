@@ -18,18 +18,11 @@ export interface PlayableBounds {
 export const DEFAULT_PLAYABLE_BOUNDS: PlayableBounds = { ...WALKABLE };
 
 /** NDC fraction of the viewport the playable floor must stay inside (0.92 = 92%). */
-const SCREEN_MARGIN = 0.92;
-/** Furthest the camera may be pushed back from its base offset, as a multiple. */
-const MAX_FIT_SCALE = 2.8;
 /** Height of the tallest fixture that must stay framed, in metres. */
 const FRAME_HEIGHT = 2.6;
 /** Eye-to-hair height of the player, used to keep the character controllable. */
-const CHARACTER_HEIGHT = 1.75;
-/** Smallest on-screen player height: a share of the viewport and an absolute floor. */
-const MIN_CHARACTER_FRACTION = 0.05;
-const MIN_CHARACTER_PX = 40;
-/** Metres kept between the camera target and the wall when zoomed in. */
-const CAMERA_INSET = 2.5;
+const CHARACTER_HEIGHT = 1.62;
+const MIN_CHARACTER_PX = 46;
 /** Metres the camera may trail when the whole room already fits on screen. */
 const CONTAINED_PAN = 2.2;
 
@@ -62,6 +55,8 @@ export class ArcadeViewport {
   public panLimit: THREE.Vector2 = new THREE.Vector2(0, 0);
   /** True when the whole room fits on screen and the camera trails inside it. */
   public contained = true;
+  /** Share of viewport width the room occupied at the last solve (0-1). */
+  public roomFill = 0;
   /** Real floor extent; the camera may zoom in but must never show past these walls. */
   public roomBounds: PlayableBounds = { ...ROOM };
   public viewportHeight = 600;
@@ -191,11 +186,10 @@ export class ArcadeViewport {
    *    view never leaves the room (cover) and no empty background shows.
    */
   private fitCameraToBounds(): void {
-    const baseLen = this.baseOffset.length();
     this.shopCenter.set(
-      (this.bounds.minX + this.bounds.maxX) / 2,
+      (this.roomBounds.minX + this.roomBounds.maxX) / 2,
       0,
-      (this.bounds.minZ + this.bounds.maxZ) / 2
+      (this.roomBounds.minZ + this.roomBounds.maxZ) / 2
     );
 
     this.probeCamera.fov = this.camera.fov;
@@ -204,98 +198,94 @@ export class ArcadeViewport {
     this.probeCamera.far = 200;
     this.probeCamera.updateProjectionMatrix();
 
-    const containDist = this.solveContainDistance(baseLen);
-    const playDist = this.playableDistance();
+    // Two constraints, and at phone widths they cannot both be satisfied by
+    // framing alone: measured in screen space, a 1.62 m character is only
+    // 1.62 * cos(elev) / roomDiagonal of the room's projected width. With a
+    // 12.45 m diamond (8.4 x 9.2 at 45 degrees yaw) the room at 85 % of a 360 px
+    // screen puts Chris at ~29 px, not 46. The design's fill band assumed screen
+    // width, not projected diagonal.
+    //
+    // So the rules are: cover the width minimum (room never shrinks inside the
+    // frame), and let the camera come closer until Chris is 46 px, cropping the
+    // room and trailing the player. That is what The Sims Mobile does.
+    const dPlayer = this.solvePlayerDistance(MIN_CHARACTER_PX);
+    const dCover = this.solveFillDistance(1.0);
+    const dist = Math.min(dPlayer, dCover);
 
-    const dist = Math.min(containDist, playDist);
-    this.contained = dist >= containDist - 0.01;
     this.targetOffset.copy(this.isoDir).multiplyScalar(dist);
-
-    if (this.contained) {
-      // Whole room on screen: trail the player a little (max CONTAINED_PAN) so the
-      // composition stays centred instead of sliding the shop to one edge.
-      this.panLimit.set(
-        Math.min(CONTAINED_PAN, this.maxPan(0, dist)),
-        Math.min(CONTAINED_PAN, this.maxPan(1, dist))
-      );
-    } else {
-      // Zoomed in for readability: trail the player freely, but keep the camera
-      // target inside the room so it never drifts past the walls.
-      const halfRoomX = (this.roomBounds.maxX - this.roomBounds.minX) / 2;
-      const halfRoomZ = (this.roomBounds.maxZ - this.roomBounds.minZ) / 2;
-      const halfWalkX = (this.bounds.maxX - this.bounds.minX) / 2;
-      const halfWalkZ = (this.bounds.maxZ - this.bounds.minZ) / 2;
-      this.panLimit.set(
-        Math.max(0, Math.min(halfWalkX, halfRoomX - CAMERA_INSET)),
-        Math.max(0, Math.min(halfWalkZ, halfRoomZ - CAMERA_INSET))
-      );
-    }
+    this.roomFill = this.projectedRoomFraction(dist);
+    this.contained = this.roomFill <= 1.05;
+    // The room overflows the frame on phones, so the camera trails the player
+    // across the walkable floor instead of being pinned to the middle.
+    this.panLimit.set(
+      Math.min(CONTAINED_PAN, (this.bounds.maxX - this.bounds.minX) / 2),
+      Math.min(CONTAINED_PAN, (this.bounds.maxZ - this.bounds.minZ) / 2)
+    );
   }
 
-  /** Distance at which the framed area first fits inside SCREEN_MARGIN. */
-  private solveContainDistance(baseLen: number): number {
+  /** Public read-out of the shot, so tests and the Playwright gate share one number. */
+  public playerPixels(x = 0, z = 0.2): number {
+    this.probeCamera.fov = this.camera.fov;
+    this.probeCamera.aspect = this.aspect;
+    this.probeCamera.updateProjectionMatrix();
+    return this.projectedPlayerPixels(this.targetOffset.length(), x, z);
+  }
+
+  private placeProbe(dist: number, atX = this.shopCenter.x, atZ = this.shopCenter.z): void {
+    const cam = this.probeCamera;
+    cam.position.set(atX + this.isoDir.x * dist, this.isoDir.y * dist, atZ + this.isoDir.z * dist);
+    cam.lookAt(atX, 0, atZ);
+    cam.updateMatrixWorld(true);
+  }
+
+  /**
+   * Fraction of viewport width covered by the room's projected bounding box.
+   *
+   * Measured across all eight corners, not just the two side walls: the camera
+   * yaws 45 degrees, so the room projects as a diamond and its widest screen span
+   * is a diagonal. Sampling only (minX, z) to (maxX, z) under-reports the width by
+   * ~20 % and puts the near-right shelf bay off screen.
+   */
+  private projectedRoomFraction(dist: number): number {
+    this.placeProbe(dist);
+    let min = Infinity;
+    let max = -Infinity;
+    for (const x of [this.roomBounds.minX, this.roomBounds.maxX]) {
+      for (const z of [this.roomBounds.minZ, this.roomBounds.maxZ]) {
+        for (const y of [0, FRAME_HEIGHT]) {
+          const ndc = this.probePoint.set(x, y, z).project(this.probeCamera).x;
+          if (ndc < min) min = ndc;
+          if (ndc > max) max = ndc;
+        }
+      }
+    }
+    return (max - min) / 2;
+  }
+
+  private projectedPlayerPixels(dist: number, x: number, z: number): number {
+    this.placeProbe(dist);
+    const feet = this.probePoint.set(x, 0, z).project(this.probeCamera).clone();
+    const head = this.probePoint.set(x, CHARACTER_HEIGHT, z).project(this.probeCamera).clone();
+    return (Math.abs(head.y - feet.y) * this.viewportHeight) / 2;
+  }
+
+  /** Distance at which the room's projected width is `target` of the viewport. */
+  private solveFillDistance(target: number, baseLen = this.baseOffset.length()): number {
     let dist = baseLen;
-    for (let i = 0; i < 6; i++) {
-      const extent = this.projectedExtent(0, 0, dist);
-      if (extent <= SCREEN_MARGIN) break;
-      dist = Math.min(baseLen * MAX_FIT_SCALE, dist * (extent / SCREEN_MARGIN) * 1.02);
+    for (let i = 0; i < 18; i++) {
+      const fill = this.projectedRoomFraction(dist);
+      if (fill <= 0) break;
+      if (Math.abs(fill - target) < 0.002) break;
+      dist = clamp(dist * (fill / target), 6, 120);
     }
     return dist;
   }
 
-  /** Distance at which a standing character is still big enough to control. */
-  private playableDistance(): number {
-    const targetPx = Math.max(MIN_CHARACTER_PX, this.viewportHeight * MIN_CHARACTER_FRACTION);
+  /** Distance at which a standing character projects at exactly targetPx. */
+  private solvePlayerDistance(targetPx: number): number {
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;
     const horizontal = Math.hypot(this.isoDir.x, this.isoDir.z);
-    // Apparent height of a vertical segment shrinks as cos(elevation).
     return (this.viewportHeight * CHARACTER_HEIGHT * horizontal) / (2 * targetPx * Math.tan(halfFov));
-  }
-
-  /** Largest |NDC| reached by the floor corners at y=0 and y=FRAME_HEIGHT. */
-  private projectedExtent(shiftX: number, shiftZ: number, dist: number): number {
-    const cx = this.shopCenter.x + shiftX;
-    const cz = this.shopCenter.z + shiftZ;
-    const cam = this.probeCamera;
-    cam.position.set(cx + this.isoDir.x * dist, this.isoDir.y * dist, cz + this.isoDir.z * dist);
-    cam.lookAt(cx, 0, cz);
-    cam.updateMatrixWorld(true);
-
-    let worst = 0;
-    for (const x of [this.bounds.minX, this.bounds.maxX]) {
-      for (const z of [this.bounds.minZ, this.bounds.maxZ]) {
-        for (const y of [0, FRAME_HEIGHT]) {
-          const p = this.probePoint.set(x, y, z).project(cam);
-          worst = Math.max(worst, Math.abs(p.x), Math.abs(p.y));
-        }
-      }
-    }
-    return worst;
-  }
-
-  /**
-   * How far a contained framing may slide along one axis before a floor corner
-   * leaves the screen margin.
-   */
-  private maxPan(axis: 0 | 1, dist: number): number {
-    const limit = 6;
-    const ok = (sx: number, sz: number): boolean =>
-      this.projectedExtent(sx, sz, dist) <= SCREEN_MARGIN;
-
-    if (!ok(0, 0)) return 0;
-    const shift = (v: number): [number, number] => (axis === 0 ? [v, 0] : [0, v]);
-    const [lx, lz] = shift(limit);
-    if (ok(lx, lz)) return limit;
-
-    let lo = 0;
-    let hi = limit;
-    for (let i = 0; i < 14; i++) {
-      const mid = (lo + hi) / 2;
-      const [mx, mz] = shift(mid);
-      if (ok(mx, mz)) lo = mid;
-      else hi = mid;
-    }
-    return lo;
   }
 
   public updateCameraFollow(targetPos: THREE.Vector3, delta: number = 0.016): void {
