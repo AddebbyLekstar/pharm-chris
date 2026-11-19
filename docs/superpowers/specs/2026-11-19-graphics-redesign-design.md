@@ -153,13 +153,47 @@ current 16×18 m shell projects to roughly 2.8× the phone width — which is ex
 cramped, overflowing frame we have today. The three rules cannot all hold at 16×18 m;
 the floor plan is the variable, not the rules.
 
-**Decision pending (founder):** re-plan the starting shop to a compact ≈ 8 × 9 m floor,
-or keep 16×18 m and give up one rule. Recommendation: shrink. It makes Chris read, it
-makes the loop snappier (dock → shelf ≈ 4 m, not 12 m), and it is what the reference
-game does. Expansions then *add depth and a camera step back*, so buying space visibly
-widens the shot instead of silently overflowing it.
+**Decided (founder, 2026-11-19): shrink the shop.** The starting floor becomes
+≈ 8.4 × 9.2 m. See §6.7 for the plan and the migration list. Expansions then *add depth
+and a camera step back*, so buying space visibly widens the shot instead of silently
+overflowing it.
 
-### 6.6 Density
+### 6.6 Floor plan (decided)
+
+Starting shop, interior **8.4 m wide × 9.2 m deep**, walls 0.3 m thick. Origin at the
+counter. North is the back wall, south is the street entrance.
+
+| Element | Position (x, z) | Size / radius |
+|---|---|---|
+| Back wall | z = −4.6 | 8.4 m long |
+| Side walls | x = ±4.2 | 9.2 m long |
+| Entrance opening | z = +4.6 | 2.2 m wide, centred |
+| Dock (crates) | (0, −3.4) | trigger r 1.1, 1.6 × 1.2 m pad |
+| Shelf bay, antimalarial | (−3.3, −2.4) | 1.9 m wide, trigger r 1.0 |
+| Shelf bay, analgesic | (−3.3, +0.6) | 1.9 m wide, trigger r 1.0 |
+| Shelf bay, antibiotic | (+3.3, −2.4) | 1.9 m wide, trigger r 1.0 |
+| Shelf bay, cold chain | (+3.3, +0.6) | 1.9 m wide, trigger r 1.0 |
+| Counter | (0, +1.6) | 3.2 m wide × 0.95 m, trigger r 1.2 |
+| Queue slots | (0, +3.0), (0, +3.9), (−0.9, +3.0), (+0.9, +3.0) | 0.7 m spacing |
+| Walkable bounds | x −3.6…+3.6, z −3.9…+3.9 | — |
+
+Solved camera at these numbers: distance ≈ 38 m, 32° fov → **≈ 59 px Chris**, room fills
+**≈ 84%** of the 360 px axis. Both rules hold with margin for the first time.
+
+**Expansions** (camera steps back one notch each, ≈ +2.5 m):
+
+- **Level 1** — knock down the partition: the room widens 1.6 m on the east side, a third
+  shelf bay appears, plus the waiting bench and second register. Camera to ≈ 40.5 m.
+- **Level 2** — consultation corner: 1.2 m added at the north-west, curtain rail, screen,
+  stool. Camera to ≈ 43 m. Room at max fill ≈ 87%; Chris still ≥ 46 px.
+
+**Migration list (mechanical, all in one commit before P1 art lands):**
+`ArcadeScene` walkable/room bounds · `TriggerZoneManager` zone positions and radii ·
+`ArcadeCustomerQueue` slot offsets · `FloorUpgradePad` positions · `ArcadeViewport`
+camera solve constants · `tests/arcade/zones.test.ts` · `tests/arcade/viewport_framing.test.ts`
+· `scripts/check-mobile.mjs` player floor 38 px → 46 px.
+
+### 6.7 Density
 
 Target 28–36 visible dressing objects in the starting shop: shelf fill, plant, water
 dispenser, dustbin, stool, fan, posters, price cards, ceiling lamps, crates at the dock,
