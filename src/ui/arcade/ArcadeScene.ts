@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { quality } from './quality';
 import { LIGHTS, artVersion, bakeContactAO } from './art';
+import { textures } from './textures';
 
 export interface WalkableBounds {
   minX: number;
@@ -28,10 +29,13 @@ export class ArcadeScene {
 
     this.buildLighting();
     this.buildPharmacyEnvironment();
-    if (artVersion() === 'v2') {
-      // Static geometry only: characters are added later by the director.
-      bakeContactAO(this.group, 0, 0.9);
+    if (artVersion() !== 'v1') {
       this.finishArtPass();
+      if (artVersion() === 'v3') this.applySurfaceArt();
+      // Static geometry only: characters are added later by the director. Baking
+      // last means the vertex-colour gradient multiplies whatever map is present
+      // instead of being overwritten by one.
+      bakeContactAO(this.group, 0, 0.9);
     }
   }
 
@@ -66,6 +70,133 @@ export class ArcadeScene {
     shade(16, 0.75, 0, -8.55, 0.22);
     shade(0.75, 18, -7.55, 0, 0.16);
     shade(0.75, 18, 7.55, 0, 0.16);
+  }
+
+
+  /**
+   * v3 surface pass.
+   *
+   * Every prop in this room is a primitive with one flat albedo, so the light has
+   * nothing to describe: uniform colour across a 6 m slab reads as plastic no
+   * matter how good the env map is. Maps here are generated once in a canvas and
+   * cost nothing at draw-call level because the materials already exist.
+   */
+  private applySurfaceArt(): void {
+    const tex = textures();
+    if (!tex) return; // no DOM (unit tests): keep the flat materials
+
+    const floor = this.group.getObjectByName('pharm-floor') as THREE.Mesh | undefined;
+    if (floor) {
+      const mat = floor.material as THREE.MeshStandardMaterial;
+      mat.map = tex.terrazzo;
+      mat.roughnessMap = tex.terrazzoRoughness;
+      mat.color.setHex(0xffffff);   // the map carries the colour now
+      mat.roughness = 1.0;          // roughnessMap scales this down per pixel
+      mat.metalness = 0.03;
+      mat.envMapIntensity = 0.8;
+      mat.needsUpdate = true;
+    }
+    // Grout is in the map; the helper would draw a second, mismatched grid.
+    const grid = this.group.getObjectByName('pharm-floor-grid');
+    if (grid) grid.visible = false;
+
+    for (const name of ['pharm-wall-back', 'pharm-wall-west', 'pharm-wall-east']) {
+      const wall = this.group.getObjectByName(name) as THREE.Mesh | undefined;
+      if (!wall) continue;
+      const mat = wall.material as THREE.MeshStandardMaterial;
+      mat.map = tex.wall;
+      mat.color.setHex(0xffffff);
+      mat.roughness = 0.86;
+      mat.metalness = 0.0;
+      mat.needsUpdate = true;
+    }
+
+    const counter = this.group.getObjectByName('pharm-counter') as THREE.Mesh | undefined;
+    if (counter) {
+      const mat = counter.material as THREE.MeshStandardMaterial;
+      mat.map = tex.teak;
+      mat.color.setHex(0xffffff);
+      mat.roughness = 0.62;
+      mat.metalness = 0.04;
+      mat.needsUpdate = true;
+    }
+
+    const slab = this.group.getObjectByName('pharm-slab') as THREE.Mesh | undefined;
+    if (slab) {
+      const mat = slab.material as THREE.MeshStandardMaterial;
+      mat.map = tex.laminate;
+      mat.color.setHex(0xffffff);
+      mat.roughness = 0.24;
+      mat.metalness = 0.06;
+      mat.needsUpdate = true;
+    }
+
+    const runner = this.group.getObjectByName('pharm-runner') as THREE.Mesh | undefined;
+    if (runner) {
+      const mat = runner.material as THREE.MeshStandardMaterial;
+      mat.map = tex.steelGreen;
+      mat.color.setHex(0x9fd8bd);   // tint the steel texture into the runner green
+      mat.roughness = 0.92;
+      mat.needsUpdate = true;
+    }
+
+    const curb = this.group.getObjectByName('pharm-curb') as THREE.Mesh | undefined;
+    if (curb) {
+      const mat = curb.material as THREE.MeshStandardMaterial;
+      mat.map = tex.wall;
+      mat.color.setHex(0xb9bdb8);
+      mat.roughness = 0.78;
+      mat.needsUpdate = true;
+    }
+
+    // Street pavement used to end on a hard edge in the void, reading as a grey
+    // slab pasted beside the shop. Fade it into the backdrop instead.
+    const street = this.group.getObjectByName('pharm-street') as THREE.Mesh | undefined;
+    if (street) {
+      const mat = street.material as THREE.MeshStandardMaterial;
+      mat.map = tex.wall;
+      mat.alphaMap = tex.groundFade;
+      mat.transparent = true;
+      mat.depthWrite = false;
+      mat.color.setHex(0x8f938f);
+      mat.roughness = 0.95;
+      mat.needsUpdate = true;
+    }
+
+    // Sneeze guard read as an opaque white slab at this camera distance; lower
+    // the opacity and let the env map give it an edge highlight.
+    for (const child of this.group.children) {
+      const mesh = child as THREE.Mesh;
+      const mat = mesh.material as THREE.MeshStandardMaterial | undefined;
+      if (mat && mat.transparent && mat.opacity === 0.28) {
+        mat.opacity = 0.16;
+        mat.roughness = 0.06;
+        mat.envMapIntensity = 1.6;
+        mat.needsUpdate = true;
+      }
+    }
+
+    // Fixtures sat straight on the floor with only a vertex gradient. A soft
+    // footprint under each bay is what makes heavy furniture look heavy.
+    const footprint = (w: number, d: number, x: number, z: number): void => {
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, d),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false })
+      );
+      plane.rotation.x = -Math.PI / 2;
+      plane.position.set(x, 0.015, z);
+      plane.renderOrder = 1;
+      this.group.add(plane);
+    };
+    footprint(2.0, 1.2, -6.2, -4.5);
+    footprint(2.0, 1.2, -6.2, 0.5);
+    footprint(2.0, 1.2, 6.2, -4.5);
+    footprint(2.0, 1.2, 6.2, 0.5);
+    footprint(1.1, 1.0, 0, 1.5);
+
+    // The room used to float on #101714. A staged gradient with a warm centre
+    // glow gives the diorama a horizon instead of a void.
+    this.scene.background = tex.backdrop;
   }
 
   /**
@@ -145,8 +276,11 @@ export class ArcadeScene {
     floorMesh.receiveShadow = true;
     this.group.add(floorMesh);
 
-    // Spec 2.3: Procedural Grout Grid overlay (1m spacing lines)
+    // Spec 2.3: Procedural Grout Grid overlay (1m spacing lines).
+    // v3 bakes the grout into the floor texture instead; a grid helper is 17 extra
+    // draw calls and reads as a debug overlay rather than a floor.
     const gridHelper = new THREE.GridHelper(16, 16, 0xddd6c8, 0xddd6c8);
+    gridHelper.name = 'pharm-floor-grid';
     gridHelper.position.y = 0.001;
     this.group.add(gridHelper);
 
@@ -180,6 +314,7 @@ export class ArcadeScene {
       roughness: 0.7,
     });
     const runner = new THREE.Mesh(runnerGeo, runnerMat);
+    runner.name = 'pharm-runner';
     runner.rotation.x = -Math.PI / 2;
     runner.position.set(0, 0.003, 5.5);
     runner.receiveShadow = true;
@@ -192,6 +327,7 @@ export class ArcadeScene {
       roughness: 0.85,
     });
     const streetMesh = new THREE.Mesh(streetGeo, streetMat);
+    streetMesh.name = 'pharm-street';
     streetMesh.rotation.x = -Math.PI / 2;
     streetMesh.position.set(0, -0.02, 10.5);
     streetMesh.receiveShadow = true;
@@ -201,6 +337,7 @@ export class ArcadeScene {
     const curbGeo = new THREE.BoxGeometry(16, 0.08, 0.3);
     const curbMat = new THREE.MeshStandardMaterial({ color: 0x828784, roughness: 0.6 });
     const curb = new THREE.Mesh(curbGeo, curbMat);
+    curb.name = 'pharm-curb';
     curb.position.set(0, 0.02, 8.85);
     this.group.add(curb);
 
@@ -213,6 +350,7 @@ export class ArcadeScene {
     // North (Back) Wall
     const backWallGeo = new THREE.BoxGeometry(16, 4.5, 0.5);
     const backWall = new THREE.Mesh(backWallGeo, wallMat);
+    backWall.name = 'pharm-wall-back';
     backWall.position.set(0, 2.25, -9.25);
     backWall.castShadow = true;
     backWall.receiveShadow = true;
@@ -221,6 +359,7 @@ export class ArcadeScene {
     // West (Left) Wall
     const westWallGeo = new THREE.BoxGeometry(0.5, 4.5, 18);
     const westWall = new THREE.Mesh(westWallGeo, wallMat);
+    westWall.name = 'pharm-wall-west';
     westWall.position.set(-8.25, 2.25, 0);
     westWall.castShadow = true;
     westWall.receiveShadow = true;
@@ -229,6 +368,7 @@ export class ArcadeScene {
     // East (Right) Wall
     const eastWallGeo = new THREE.BoxGeometry(0.5, 4.5, 18);
     const eastWall = new THREE.Mesh(eastWallGeo, wallMat);
+    eastWall.name = 'pharm-wall-east';
     eastWall.position.set(8.25, 2.25, 0);
     eastWall.castShadow = true;
     eastWall.receiveShadow = true;
@@ -268,6 +408,7 @@ export class ArcadeScene {
       metalness: 0.08,
     });
     const slab = new THREE.Mesh(slabGeo, slabMat);
+    slab.name = 'pharm-slab';
     slab.position.set(0, 1.21, 1.5);
     slab.castShadow = true;
     slab.receiveShadow = true;

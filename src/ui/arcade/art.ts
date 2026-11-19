@@ -4,19 +4,25 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 /**
  * Art direction switch.
  *
- *   ?art=v1  the shipped look (flat ambient, no environment lighting)
+ *   ?art=v1  the original look (flat ambient, no environment lighting)
  *   ?art=v2  environment lighting, rebalanced lights, matte surfaces, baked
  *            contact ambient occlusion
+ *   ?art=v3  v2 plus procedural surface textures, signage, a staged backdrop and
+ *            restrained interaction rings — the default
  *
- * v1 stays the default so the two can be screenshotted from the same build and
- * compared without a branch.
+ * Every version is reachable from one build so a look can be screenshotted
+ * against its predecessor without a branch.
  */
-export type ArtVersion = 'v1' | 'v2';
+export type ArtVersion = 'v1' | 'v2' | 'v3';
 
 export function artVersion(search?: string): ArtVersion {
   const query = search ?? (typeof window !== 'undefined' ? window.location.search : '');
   const value = new URLSearchParams(query).get('art');
-  return value === 'v2' ? 'v2' : 'v1';
+  if (value === 'v1' || value === 'v2' || value === 'v3') return value;
+  // v3 is the shipped look: environment lighting plus procedural surface detail.
+  // The older passes stay reachable so a regression can be screenshotted against
+  // them from the same build.
+  return 'v3';
 }
 
 export interface LightSetup {
@@ -47,6 +53,15 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
     counterSpot: null,
     crossGlow: { color: 0x00e676, intensity: 0.3, distance: 9 },
   },
+  v3: {
+    // Same physical budget as v2. v3 adds detail to the surfaces, not light to
+    // the room: another light would only flatten what the textures just built.
+    ambient: { color: 0xf2f6ff, intensity: 0.1 },
+    sun: { color: 0xfff1d8, intensity: 2.6 },
+    hemisphere: { sky: 0x9fd4ff, ground: 0x5a3a20, intensity: 0.2 },
+    counterSpot: null,
+    crossGlow: { color: 0x00e676, intensity: 0.3, distance: 9 },
+  },
 };
 
 /**
@@ -55,7 +70,7 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
  * surfaces have nothing to reflect and every PBR material reads as plastic.
  */
 export function applyEnvironment(scene: THREE.Scene, renderer: THREE.WebGLRenderer | null, version: ArtVersion): void {
-  if (version !== 'v2' || !renderer) return;
+  if (version === 'v1' || !renderer) return;
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
   const room = new RoomEnvironment();
@@ -153,7 +168,7 @@ export function applyArtDirection(
   renderer: THREE.WebGLRenderer | null,
   version: ArtVersion
 ): void {
-  if (version !== 'v2') return;
+  if (version === 'v1') return;
   applyEnvironment(scene, renderer, version);
   tuneSurfaceMaterials(root);
   if (renderer) {

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { Product } from '../../sim/types';
+import { artVersion } from './art';
+import { textures, signage } from './textures';
 
 export function normalizeCategory(cat: string): string {
   const c = (cat || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -73,14 +75,20 @@ export class PharmacyShelves3D {
   }
 
   private buildShelvingUnits(): void {
+    const surf = artVersion() === 'v3' ? textures() : null;
+
     // Spec 2.3: Powder-coated forest teal steel uprights + warm wood shelves
+    // Darker than the wall on purpose: at 0x1b4d3e the bays dissolved into a wall
+    // of the same green and the room lost its only mid-ground layer.
     const tealSteelMat = new THREE.MeshStandardMaterial({
-      color: 0x1b4d3e,
-      roughness: 0.40,
+      color: surf ? 0x7c9b90 : 0x1b4d3e,
+      roughness: surf ? 0.55 : 0.40,
+      map: surf ? surf.steelTeal : null,
     });
     const woodShelfMat = new THREE.MeshStandardMaterial({
-      color: 0x5d4037,
+      color: surf ? 0xffffff : 0x5d4037,
       roughness: 0.70,
+      map: surf ? surf.teak : null,
     });
     // Spec 2.3: Cold Chain Refrigerator Bay (0xDDEEFF, metalness 0.25, roughness 0.25)
     const fridgeMat = new THREE.MeshStandardMaterial({
@@ -126,6 +134,25 @@ export class PharmacyShelves3D {
       const plate = new THREE.Mesh(plateGeo, plateMat);
       plate.position.set(0, 2.7, conf.position.x < 0 ? 0.5 : -0.5);
       shelfBay.add(plate);
+
+      // v3: real signage. The eye finds words before it finds geometry, and a bay
+      // with no label is the single strongest "unfinished set" cue in the room.
+      if (surf) {
+        const face = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.46, 0.28),
+          new THREE.MeshStandardMaterial({
+            map: signage(conf.label, conf.color),
+            roughness: 0.42,
+            metalness: 0.0,
+            emissive: new THREE.Color(conf.color).multiplyScalar(0.18),
+            emissiveMap: null,
+          })
+        );
+        const facing = conf.position.x < 0 ? 1 : -1;
+        face.position.set(0, 2.7, (conf.position.x < 0 ? 0.5 : -0.5) + facing * 0.079);
+        if (facing < 0) face.rotation.y = Math.PI;
+        shelfBay.add(face);
+      }
 
       // Display boxes: one InstancedMesh per bay (9 draws -> 1 draw per bay).
       const boxGeo = new THREE.BoxGeometry(0.42, 0.24, 0.3);

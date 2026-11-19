@@ -11,7 +11,8 @@ import os from 'node:os';
 const args = process.argv.slice(2);
 const i = args.indexOf('--url');
 const URL_BASE = i >= 0 ? args[i + 1] : process.env.URL_BASE || 'http://127.0.0.1:4173/';
-const OUT = './art-ab';
+const o = args.indexOf('--out');
+const OUT = o >= 0 ? args[o + 1] : './art-ab';
 fs.mkdirSync(OUT, { recursive: true });
 
 const launch = {
@@ -24,7 +25,7 @@ const browser = await chromium.launch(launch);
 const out = { url: URL_BASE, runs: [] };
 
 for (const [w, h, quality] of [[360, 800, 'low'], [1280, 720, 'high']]) {
-  for (const art of ['v1', 'v2']) {
+  for (const art of ['v1', 'v2', 'v3']) {
     const ctx = await browser.newContext({
       viewport: { width: w, height: h },
       deviceScaleFactor: 2,

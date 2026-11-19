@@ -15,4 +15,5 @@ layout*.json
 
 # Art A/B captures
 art-ab/
+art-ab3/
 gate-*.json
