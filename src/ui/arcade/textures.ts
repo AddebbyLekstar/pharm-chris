@@ -282,10 +282,13 @@ export function zoneRing(): THREE.CanvasTexture {
   const { canvas, ctx } = sheet(256);
   ctx.clearRect(0, 0, 256, 256);
   const grad = ctx.createRadialGradient(128, 128, 60, 128, 128, 126);
-  grad.addColorStop(0, 'rgba(255,255,255,0.12)');
-  grad.addColorStop(0.7, 'rgba(255,255,255,0.10)');
-  grad.addColorStop(0.9, 'rgba(255,255,255,0.95)');
-  grad.addColorStop(0.97, 'rgba(255,255,255,0.40)');
+  // A coloured wash over bright terrazzo always reads washed out, so the band
+  // itself is opaque and only the interior is faint. Legibility comes from the
+  // edge, not from tinting the whole disc.
+  grad.addColorStop(0, 'rgba(255,255,255,0.08)');
+  grad.addColorStop(0.7, 'rgba(255,255,255,0.06)');
+  grad.addColorStop(0.88, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.94, 'rgba(255,255,255,1)');
   grad.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = grad;
   ctx.beginPath();

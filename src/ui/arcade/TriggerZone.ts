@@ -39,7 +39,7 @@ export class TriggerZone {
     // the halo fades up as the player approaches and stays quiet when they are
     // across the room.
     this.soft = artVersion() === 'v3';
-    this.baseOpacity = this.soft ? 0.34 : 0.65;
+    this.baseOpacity = this.soft ? 0.5 : 0.65;
     const ringGeo = this.soft
       ? new THREE.PlaneGeometry(this.radius * 2, this.radius * 2)
       : new THREE.RingGeometry(this.radius * 0.75, this.radius, 32);
@@ -73,7 +73,7 @@ export class TriggerZone {
       const dz = playerPosition.z - this.position.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
       const near = Math.min(1, Math.max(0, 1 - (distance - this.radius) / 4));
-      this.ringMat.opacity = this.baseOpacity + near * (0.78 - this.baseOpacity);
+      this.ringMat.opacity = this.baseOpacity + near * (0.9 - this.baseOpacity);
       const grow = 1 + near * 0.04;
       this.ringMesh.scale.set(pulse * grow, pulse * grow, 1);
       return;
