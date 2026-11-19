@@ -88,18 +88,36 @@ device framebuffer (`adb exec-out screencap -p`) showed the shop correctly.
 dock → shelf → counter rounds, cash and served deltas, a save/reload round trip, and
 a 6×-throttled phone pass.
 
-## Result of record — 2026-11-18, bundle `assets/index-ChqAL9nf.js`
+## Result of record — 2026-11-19, art v3 build (`index--u5iKoNb.js`)
 
-| Box | Build | Tests | Layout gate | Player | Draw calls | Errors |
-|---|---|---|---|---|---|---|
-| `hermes` | `index-ChqAL9nf.js` | 151/151 | pass (7 viewports) | 42–68 px | 76 max phone / 143 desktop | 0 |
-| `hermes2` | `index-ChqAL9nf.js` | 151/151 | pass (7 viewports) | 42–68 px | 76 max phone / 147 desktop | 0 |
-| `hermesandroid` | same | — | pass (360×495) | 43 px | 70 | 0 |
-| `hermesandroid2` | same | — | pass (360×495) | 43 px | 70 | 0 |
+Previous record: 2026-11-18, `index-ChqAL9nf.js`, 76 max phone draw calls, 0 texture MB.
 
-The Android frame time on the emulator (p50 66.7 ms) is SwiftShader software
-rendering. It is not evidence about a real phone GPU, and should not be quoted as
-performance.
+The marker proving the box ran the current artifact: **`textureMB: 28`**, up from 0
+before the procedural surface pass.
+
+| Box | Build | Tests | Layout gate | Draw calls | Errors |
+|---|---|---|---|---|---|
+| `hermes` | clean | 151/151 | pass (7 viewports) | 89 avg / 96 max phone, 154 desktop | 0 |
+| `hermes2` | clean | 151/151 | pass (7 viewports) | 89 avg / 96 max phone, 154 desktop | 0 |
+| `hermesandroid` | clean | — | pass (360×495) | 79, 1,456 tris | 0 |
+| `hermesandroid2` | clean | — | pass (360×495) | 79, 1,456 tris | 0 |
+
+Desktop loop on both PC boxes served real customers (0 → 4 and 0 → 5) and restored
+cash/day/served from a 1,260 B save. Android framebuffer screenshot mean luminance
+110.8 — the canvas is rendering, not black.
+
+Frame times are SwiftShader: phone p50 50–83 ms on the PC boxes, 66.7 ms on the
+emulator. Directional only; they are not evidence about a real phone GPU and must
+not be quoted as performance.
+
+Reproduce:
+
+```bash
+bash scripts/instabox-gate.sh hermes
+bash scripts/instabox-gate.sh hermes2
+bash scripts/instabox-gate.sh hermesandroid scripts/android-run.sh
+bash scripts/instabox-gate.sh hermesandroid2 scripts/android-run.sh
+```
 
 ## Known gaps
 
