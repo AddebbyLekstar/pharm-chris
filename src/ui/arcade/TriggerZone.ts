@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ZONES } from './layout';
 import { ArcadePlayer } from './ArcadePlayer';
 import { MedicineStack } from './MedicineStack';
 import { PharmacyShelves3D } from './PharmacyShelves3D';
@@ -108,50 +109,13 @@ export class TriggerZoneManager {
   }
 
   private setupZones(): void {
-    const configs: TriggerZoneConfig[] = [
-      {
-        id: 'dock',
-        name: 'Delivery Unboxing Dock',
-        position: new THREE.Vector3(0, 0, -6.5),
-        radius: 2.0,
-        color: '#FFD54F',
-      },
-      {
-        id: 'shelf_antimalarial',
-        name: 'Antimalarial Shelf',
-        position: new THREE.Vector3(-4.5, 0, -4.5),
-        radius: 1.8,
-        color: '#E53935',
-      },
-      {
-        id: 'shelf_analgesic',
-        name: 'Analgesic Shelf',
-        position: new THREE.Vector3(-4.5, 0, 0.5),
-        radius: 1.8,
-        color: '#43A047',
-      },
-      {
-        id: 'shelf_antibiotic',
-        name: 'Antibiotic Shelf',
-        position: new THREE.Vector3(4.5, 0, -4.5),
-        radius: 1.8,
-        color: '#1E88E5',
-      },
-      {
-        id: 'shelf_cold_chain',
-        name: 'Cold Chain / Insulin Shelf',
-        position: new THREE.Vector3(4.5, 0, 0.5),
-        radius: 1.8,
-        color: '#00ACC1',
-      },
-      {
-        id: 'counter_cashier',
-        name: 'Dispensing & Cashier Counter',
-        position: new THREE.Vector3(0, 0, 0.2),
-        radius: 2.0,
-        color: '#00E676',
-      },
-    ];
+    const configs: TriggerZoneConfig[] = ZONES.map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      position: new THREE.Vector3(zone.x, 0, zone.z),
+      radius: zone.radius,
+      color: zone.color,
+    }));
 
     for (const conf of configs) {
       const zone = new TriggerZone(conf);

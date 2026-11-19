@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SHELF_BAYS } from './layout';
 import { Product } from '../../sim/types';
 import { artVersion } from './art';
 import { textures, signage } from './textures';
@@ -23,36 +24,14 @@ export interface ShelfUnitConfig {
 export class PharmacyShelves3D {
   public group: THREE.Group;
   private stockLevels: Map<string, number> = new Map();
-  private shelfConfigs: ShelfUnitConfig[] = [
-    {
-      category: 'antimalarial',
-      label: 'ANTIMALARIALS',
-      color: '#E53935',
-      position: new THREE.Vector3(-6.2, 0, -4.5),
-      capacity: 30,
-    },
-    {
-      category: 'analgesic',
-      label: 'ANALGESICS',
-      color: '#43A047',
-      position: new THREE.Vector3(-6.2, 0, 0.5),
-      capacity: 30,
-    },
-    {
-      category: 'antibiotic',
-      label: 'ANTIBIOTICS',
-      color: '#1E88E5',
-      position: new THREE.Vector3(6.2, 0, -4.5),
-      capacity: 30,
-    },
-    {
-      category: 'cold_chain',
-      label: 'COLD CHAIN / INSULIN',
-      color: '#00ACC1',
-      position: new THREE.Vector3(6.2, 0, 0.5),
-      capacity: 20,
-    },
-  ];
+  // Positions come from the layout module: four bays, two per side wall.
+  private shelfConfigs: ShelfUnitConfig[] = SHELF_BAYS.map((bay) => ({
+    category: bay.category,
+    label: bay.label,
+    color: bay.color,
+    position: new THREE.Vector3(bay.x, 0, bay.z),
+    capacity: bay.category === 'cold_chain' ? 20 : 30,
+  }));
   private displayBoxMeshes: Map<string, THREE.InstancedMesh> = new Map();
   private capacity: number = 30;
 

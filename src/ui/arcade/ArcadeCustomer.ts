@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { QUEUE_SLOTS, ROOM, WALKABLE } from './layout';
 import { mergeRig } from './mergeMeshes';
 import { Customer } from '../../sim/types';
 import { ArcadeScene } from './ArcadeScene';
@@ -12,7 +13,7 @@ export class ArcadeCustomer {
   public state: CustomerState = 'walking';
   public isStoryCustomer: boolean;
   public hasNegotiated: boolean = false;
-  public targetPosition: THREE.Vector3 = new THREE.Vector3(0, 0, 8.5);
+  public targetPosition: THREE.Vector3 = new THREE.Vector3(0, 0, ROOM.maxZ + 1.2);
   
   private walkTimer: number = 0;
   private bodyGroup!: THREE.Group;
@@ -260,14 +261,18 @@ export class ArcadeCustomer {
   public updateTargetSlot(slotIndex: number): void {
     this.slotIndex = slotIndex;
     // Slot 0 is right at counter (z = 2.8)
-    // Each further slot is 1.3 units back along Z towards entrance
-    const targetZ = 2.8 + slotIndex * 1.3;
-    this.targetPosition.set(0, 0, targetZ);
+    // Slots come from the layout module: two rows in front of the counter plus two
+    // flanking seats. Overflow queues tighter rather than walking into the wall.
+    const slot = QUEUE_SLOTS[slotIndex % QUEUE_SLOTS.length];
+    const overflow = Math.floor(slotIndex / QUEUE_SLOTS.length);
+    const targetZ = Math.min(slot.z + overflow * 0.55, WALKABLE.maxZ - 0.25);
+    const targetX = slot.x + (overflow % 2 === 1 ? 0.55 : 0);
+    this.targetPosition.set(targetX, 0, targetZ);
   }
 
   public setLeaving(): void {
     this.state = 'leaving';
-    this.targetPosition.set(0, 0, 11.0); // Outside street
+    this.targetPosition.set(this.mesh.position.x, 0, ROOM.maxZ + 2.4); // out to the street
   }
 
   public update(delta: number): void {

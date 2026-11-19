@@ -1,3 +1,4 @@
+import { QUEUE_SLOTS } from '../../src/ui/arcade/layout';
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { ArcadeCustomer } from '../../src/ui/arcade/ArcadeCustomer';
@@ -38,7 +39,7 @@ describe('Task 5: Customer Queuing & Hybrid Counter Interaction', () => {
 
     const front = queue.getFrontCustomer();
     expect(front?.state).toBe('serving');
-    expect(front?.position.z).toBeCloseTo(2.8, 1);
+    expect(front?.position.z).toBeCloseTo(QUEUE_SLOTS[0].z, 1);
   });
 
   it('identifies story customers for hybrid interaction modal', () => {

@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { quality } from './quality';
 import { LIGHTS, artVersion, bakeContactAO } from './art';
 import { textures } from './textures';
+import { WALKABLE, ROOM, SHOP_W, SHOP_D, COUNTER, boundsFor } from './layout';
+import { buildRoomShell } from './kit/roomShell';
+import { chamferBox } from './kit/geometry';
+import { material } from './kit/materials';
 
 export interface WalkableBounds {
   minX: number;
@@ -14,12 +18,7 @@ export class ArcadeScene {
   public group: THREE.Group;
   public scene: THREE.Scene;
   private expansionGroup: THREE.Group | null = null;
-  private bounds: WalkableBounds = {
-    minX: -6.0,
-    maxX: 6.0,
-    minZ: -6.5,
-    maxZ: 6.5,
-  };
+  private bounds: WalkableBounds = { ...WALKABLE };
 
   constructor() {
     this.group = new THREE.Group();
@@ -65,11 +64,11 @@ export class ArcadeScene {
     };
 
     // Counter footprint plus a soft overhang
-    shade(7.2, 1.7, 0, 1.5, 0.22);
+    shade(COUNTER.width + 0.4, COUNTER.depth + 0.4, COUNTER.x, COUNTER.z, 0.22);
     // Wall bases: a narrow band that reads as occlusion, not decoration
-    shade(16, 0.75, 0, -8.55, 0.22);
-    shade(0.75, 18, -7.55, 0, 0.16);
-    shade(0.75, 18, 7.55, 0, 0.16);
+    shade(SHOP_W, 0.75, 0, ROOM.minZ + 0.375, 0.22);
+    shade(0.75, SHOP_D, ROOM.minX + 0.375, 0, 0.16);
+    shade(0.75, SHOP_D, ROOM.maxX - 0.375, 0, 0.16);
   }
 
 
@@ -263,209 +262,80 @@ export class ArcadeScene {
   }
 
   private buildPharmacyEnvironment(): void {
-    // Spec 2.3: Floor (Terrazzo Tile) 16m x 18m
-    const floorGeo = new THREE.PlaneGeometry(16, 18);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0xf4f1ea,
-      roughness: 0.32,
-      metalness: 0.04,
-    });
-    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-    floorMesh.name = 'pharm-floor';
-    floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.receiveShadow = true;
-    this.group.add(floorMesh);
+    // The shell owns floor, walls, doorway, cut-face trim and skirting. Keeping it
+    // in the kit means the room can change size without touching this file.
+    this.group.add(buildRoomShell());
 
-    // Spec 2.3: Procedural Grout Grid overlay (1m spacing lines).
-    // v3 bakes the grout into the floor texture instead; a grid helper is 17 extra
-    // draw calls and reads as a debug overlay rather than a floor.
-    const gridHelper = new THREE.GridHelper(16, 16, 0xddd6c8, 0xddd6c8);
-    gridHelper.name = 'pharm-floor-grid';
-    gridHelper.position.y = 0.001;
-    this.group.add(gridHelper);
+    // Street beyond the doorway. Without it the 2.2 m opening looks onto the void,
+    // and the doorway is the whole reason the front wall is cut rather than solid.
+    const streetMat = new THREE.MeshStandardMaterial({ color: 0x3c3f3d, roughness: 0.85 });
+    const street = new THREE.Mesh(new THREE.PlaneGeometry(SHOP_W + 6, 5), streetMat);
+    street.name = 'pharm-street';
+    street.rotation.x = -Math.PI / 2;
+    street.position.set(0, -0.02, ROOM.maxZ + 3);
+    street.receiveShadow = true;
+    this.group.add(street);
 
-    // Spec 2.3: Perimeter Skirting / Border: Width 0.6m, color 0x182E24, roughness 0.55
-    const borderMat = new THREE.MeshStandardMaterial({
-      color: 0x182e24,
-      roughness: 0.55,
-    });
-    // North perimeter strip
-    const northBorder = new THREE.Mesh(new THREE.PlaneGeometry(16, 0.6), borderMat);
-    northBorder.rotation.x = -Math.PI / 2;
-    northBorder.position.set(0, 0.002, -8.7);
-    this.group.add(northBorder);
-
-    // West perimeter strip
-    const westBorder = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 18), borderMat);
-    westBorder.rotation.x = -Math.PI / 2;
-    westBorder.position.set(-7.7, 0.002, 0);
-    this.group.add(westBorder);
-
-    // East perimeter strip
-    const eastBorder = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 18), borderMat);
-    eastBorder.rotation.x = -Math.PI / 2;
-    eastBorder.position.set(7.7, 0.002, 0);
-    this.group.add(eastBorder);
-
-    // Customer waiting queue aisle runner mat (high contrast forest green)
-    const runnerGeo = new THREE.PlaneGeometry(3.2, 7.5);
-    const runnerMat = new THREE.MeshStandardMaterial({
-      color: 0x1e3f32,
-      roughness: 0.7,
-    });
-    const runner = new THREE.Mesh(runnerGeo, runnerMat);
-    runner.name = 'pharm-runner';
-    runner.rotation.x = -Math.PI / 2;
-    runner.position.set(0, 0.003, 5.5);
-    runner.receiveShadow = true;
-    this.group.add(runner);
-
-    // Outside street pavement patch (south entrance)
-    const streetGeo = new THREE.PlaneGeometry(16, 5);
-    const streetMat = new THREE.MeshStandardMaterial({
-      color: 0x3c3f3d,
-      roughness: 0.85,
-    });
-    const streetMesh = new THREE.Mesh(streetGeo, streetMat);
-    streetMesh.name = 'pharm-street';
-    streetMesh.rotation.x = -Math.PI / 2;
-    streetMesh.position.set(0, -0.02, 10.5);
-    streetMesh.receiveShadow = true;
-    this.group.add(streetMesh);
-
-    // Curb threshold edge
-    const curbGeo = new THREE.BoxGeometry(16, 0.08, 0.3);
     const curbMat = new THREE.MeshStandardMaterial({ color: 0x828784, roughness: 0.6 });
-    const curb = new THREE.Mesh(curbGeo, curbMat);
+    const curb = new THREE.Mesh(chamferBox(SHOP_W + 6, 0.08, 0.3, 0.02), curbMat);
     curb.name = 'pharm-curb';
-    curb.position.set(0, 0.02, 8.85);
+    curb.position.set(0, 0.02, ROOM.maxZ + 0.6);
     this.group.add(curb);
 
-    // Back and side walls
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x22493d, // Crisp Lagos community chemist deep emerald wall
-      roughness: 0.65,
-    });
+    // Dispensing counter: teak base, ivory slab, two glass sneeze guards with a
+    // 1.2 m service gap in the middle so the player and customers are not
+    // separated by a wall of glass.
+    const counterBase = new THREE.Mesh(
+      chamferBox(COUNTER.width, 1.15, COUNTER.depth, 0.03),
+      material('wood', 0x4e342e)
+    );
+    counterBase.name = 'pharm-counter';
+    counterBase.position.set(COUNTER.x, 0.575, COUNTER.z);
+    counterBase.castShadow = true;
+    counterBase.receiveShadow = true;
+    this.group.add(counterBase);
 
-    // North (Back) Wall
-    const backWallGeo = new THREE.BoxGeometry(16, 4.5, 0.5);
-    const backWall = new THREE.Mesh(backWallGeo, wallMat);
-    backWall.name = 'pharm-wall-back';
-    backWall.position.set(0, 2.25, -9.25);
-    backWall.castShadow = true;
-    backWall.receiveShadow = true;
-    this.group.add(backWall);
-
-    // West (Left) Wall
-    const westWallGeo = new THREE.BoxGeometry(0.5, 4.5, 18);
-    const westWall = new THREE.Mesh(westWallGeo, wallMat);
-    westWall.name = 'pharm-wall-west';
-    westWall.position.set(-8.25, 2.25, 0);
-    westWall.castShadow = true;
-    westWall.receiveShadow = true;
-    this.group.add(westWall);
-
-    // East (Right) Wall
-    const eastWallGeo = new THREE.BoxGeometry(0.5, 4.5, 18);
-    const eastWall = new THREE.Mesh(eastWallGeo, wallMat);
-    eastWall.name = 'pharm-wall-east';
-    eastWall.position.set(8.25, 2.25, 0);
-    eastWall.castShadow = true;
-    eastWall.receiveShadow = true;
-    this.group.add(eastWall);
-
-    // Front Wall with Entrance Doorway (z = 9)
-    const frontLeftGeo = new THREE.BoxGeometry(6, 4.5, 0.5);
-    const frontLeft = new THREE.Mesh(frontLeftGeo, wallMat);
-    frontLeft.position.set(-5, 2.25, 9.25);
-    this.group.add(frontLeft);
-
-    const frontRightGeo = new THREE.BoxGeometry(6, 4.5, 0.5);
-    const frontRight = new THREE.Mesh(frontRightGeo, wallMat);
-    frontRight.position.set(5, 2.25, 9.25);
-    this.group.add(frontRight);
-
-    // Spec 2.3: Dispensary Counter (Teak Wood base + Ivory Laminate Top + Glass Guard)
-    // Base Counter: BoxGeometry(6.4, 1.15, 0.95), Nigerian Teak wood panels (0x4E342E)
-    const counterGeo = new THREE.BoxGeometry(6.4, 1.15, 0.95);
-    const teakMat = new THREE.MeshStandardMaterial({
-      color: 0x4e342e,
-      roughness: 0.65,
-      metalness: 0.05,
-    });
-    const counter = new THREE.Mesh(counterGeo, teakMat);
-    counter.name = 'pharm-counter';
-    counter.position.set(0, 0.575, 1.5);
-    counter.castShadow = true;
-    counter.receiveShadow = true;
-    this.group.add(counter);
-
-    // Beveled ivory laminate countertop slab
-    const slabGeo = new THREE.BoxGeometry(6.6, 0.12, 1.1);
-    const slabMat = new THREE.MeshStandardMaterial({
-      color: 0xf7fafc,
-      roughness: 0.20,
-      metalness: 0.08,
-    });
-    const slab = new THREE.Mesh(slabGeo, slabMat);
+    const slab = new THREE.Mesh(
+      chamferBox(COUNTER.width + 0.2, 0.12, COUNTER.depth + 0.15, 0.02),
+      material('plaster', 0xf7fafc)
+    );
     slab.name = 'pharm-slab';
-    slab.position.set(0, 1.21, 1.5);
+    slab.position.set(COUNTER.x, 1.21, COUNTER.z);
     slab.castShadow = true;
     slab.receiveShadow = true;
     this.group.add(slab);
 
-    // Glass Sneeze Guard Partition.
-    // A transmission material forces three.js to render the whole scene into an
-    // extra buffer every frame (2x draw calls on a phone) for a detail nobody
-    // reads at this camera distance. Plain transparency looks the same here.
-    const glassMat = new THREE.MeshStandardMaterial({
-      color: 0xd7f0f4,
-      transparent: true,
-      opacity: 0.28,
-      roughness: 0.15,
-      metalness: 0.05,
-      depthWrite: false,
-    });
-    // Left and right sneeze guards leaving 1.2m service gap in center
-    const glassPanelGeo = new THREE.BoxGeometry(2.4, 0.75, 0.06);
-    const leftGlass = new THREE.Mesh(glassPanelGeo, glassMat);
-    leftGlass.position.set(-1.8, 1.645, 1.5);
-    this.group.add(leftGlass);
-
-    const rightGlass = new THREE.Mesh(glassPanelGeo, glassMat);
-    rightGlass.position.set(1.8, 1.645, 1.5);
-    this.group.add(rightGlass);
-
-    // Grounded contact shadows beneath counter
-    for (const offset of [-2.6, 0, 2.6]) {
-      const counterShadow = ArcadeScene.createContactShadow(0.85, 0.4);
-      counterShadow.scale.set(1.4, 0.9, 1);
-      counterShadow.position.set(offset, 0.006, 1.5);
-      this.group.add(counterShadow);
+    const guardWidth = (COUNTER.width - 1.2) / 2;
+    for (const side of [-1, 1]) {
+      const guard = new THREE.Mesh(chamferBox(guardWidth, 0.75, 0.06, 0.015), material('glass'));
+      guard.name = `pharm-guard-${side < 0 ? 'l' : 'r'}`;
+      guard.position.set(COUNTER.x + side * (0.6 + guardWidth / 2), 1.645, COUNTER.z);
+      this.group.add(guard);
     }
 
-    // Cash Register unit on counter
-    const regGeo = new THREE.BoxGeometry(0.8, 0.6, 0.7);
-    const regMat = new THREE.MeshStandardMaterial({ color: 0x1f2421, roughness: 0.35, metalness: 0.2 });
-    const register = new THREE.Mesh(regGeo, regMat);
-    register.position.set(0, 1.55, 1.5);
+    const register = new THREE.Mesh(chamferBox(0.8, 0.6, 0.7, 0.03), material('steel', 0x1f2421));
+    register.name = 'pharm-register';
+    register.position.set(COUNTER.x, 1.57, COUNTER.z);
     register.castShadow = true;
     this.group.add(register);
 
-    // Green Cross Neon Emblem on back wall with luminous glow
-    const crossMat = new THREE.MeshBasicMaterial({ color: 0x00e676 });
-    const crossV = new THREE.Mesh(
-      new THREE.BoxGeometry(0.4, 1.4, 0.12),
-      crossMat
-    );
-    crossV.position.set(0, 3.2, -8.95);
-    this.group.add(crossV);
+    // Contact shadows under the counter, so it sits on the floor instead of hovering.
+    for (const offset of [-1.0, 0, 1.0]) {
+      const counterShadow = ArcadeScene.createContactShadow(0.85, 0.3);
+      counterShadow.scale.set(1.15, 0.8, 1);
+      counterShadow.position.set(COUNTER.x + offset, 0.006, COUNTER.z);
+      this.group.add(counterShadow);
+    }
 
-    const crossH = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 0.4, 0.12),
-      crossMat
-    );
-    crossH.position.set(0, 3.2, -8.95);
+    // Pharmacy cross on the back wall, above the dispensary.
+    const crossMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.4, emissive: 0x0d2f10, emissiveIntensity: 0.4 });
+    const crossV = new THREE.Mesh(chamferBox(0.42, 1.3, 0.1, 0.02), crossMat);
+    crossV.name = 'pharm-cross-v';
+    crossV.position.set(0, 2.25, ROOM.minZ + 0.07);
+    this.group.add(crossV);
+    const crossH = new THREE.Mesh(chamferBox(1.3, 0.42, 0.1, 0.02), crossMat);
+    crossH.name = 'pharm-cross-h';
+    crossH.position.set(0, 2.25, ROOM.minZ + 0.07);
     this.group.add(crossH);
   }
 
@@ -484,6 +354,10 @@ export class ArcadeScene {
       });
       this.expansionGroup = null;
     }
+
+    // Bounds move first: the camera and the player read them on the next frame, and
+    // a purchase that grows the room must widen where the player may stand.
+    this.bounds = { ...boundsFor(level).walkable };
     if (level <= 0) return;
 
     const g = new THREE.Group();
@@ -492,44 +366,49 @@ export class ArcadeScene {
     const cream = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.4 });
 
     if (level >= 1) {
-      // Second aisle floor patch on the east side
-      const aisle = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 10), cream);
+      // The east partition comes down: patch of floor in the new bay.
+      const bay = boundsFor(1).room.maxX - ROOM.maxX;
+      const aisle = new THREE.Mesh(new THREE.PlaneGeometry(bay, SHOP_D), cream);
       aisle.rotation.x = -Math.PI / 2;
-      aisle.position.set(6.2, 0.004, 1.6);
+      aisle.position.set(ROOM.maxX + bay / 2, 0.004, 0);
       aisle.receiveShadow = true;
       g.add(aisle);
 
-      // Waiting bench for the queue
-      const bench = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 0.6), wood);
-      bench.position.set(-4.6, 0.46, 5.4);
+      // Waiting bench against the front wall, clear of the queue slots at x +/-0.9.
+      const benchX = -2.3;
+      const benchZ = WALKABLE.maxZ - 0.4;
+      const bench = new THREE.Mesh(chamferBox(2.2, 0.16, 0.55, 0.03), wood);
+      bench.position.set(benchX, 0.46, benchZ);
       bench.castShadow = true;
       g.add(bench);
-      for (const dx of [-1.1, 1.1]) {
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.46, 0.5), teal);
-        leg.position.set(-4.6 + dx, 0.23, 5.4);
+      for (const dx of [-0.9, 0.9]) {
+        const leg = new THREE.Mesh(chamferBox(0.14, 0.46, 0.45, 0.02), teal);
+        leg.position.set(benchX + dx, 0.23, benchZ);
         g.add(leg);
       }
 
-      // Second register station
-      const reg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.6), teal);
-      reg.position.set(3.1, 1.5, 1.5);
+      // Second register on the widened counter run.
+      const reg = new THREE.Mesh(chamferBox(0.7, 0.55, 0.6, 0.03), teal);
+      reg.position.set(COUNTER.x + 1.25, 1.53, COUNTER.z);
       reg.castShadow = true;
       g.add(reg);
     }
 
     if (level >= 2) {
-      // Consultation corner: curtain rail + screen + stool
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.08, 0.08), teal);
-      rail.position.set(-4.8, 2.5, -1.6);
+      // Consultation corner in the north-west extension.
+      const cx = boundsFor(2).room.minX + 0.9;
+      const cz = boundsFor(2).room.minZ + 1.2;
+      const rail = new THREE.Mesh(chamferBox(2.4, 0.08, 0.08, 0.02), teal);
+      rail.position.set(cx, 2.5, cz);
       g.add(rail);
       const curtain = new THREE.Mesh(
-        new THREE.BoxGeometry(2.5, 2.2, 0.05),
+        chamferBox(2.3, 2.2, 0.05, 0.015),
         new THREE.MeshStandardMaterial({ color: 0x2f6f56, roughness: 0.9, transparent: true, opacity: 0.85 })
       );
-      curtain.position.set(-4.8, 1.35, -1.6);
+      curtain.position.set(cx, 1.35, cz);
       g.add(curtain);
       const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.5, 12), wood);
-      stool.position.set(-4.8, 0.25, -1.1);
+      stool.position.set(cx, 0.25, cz + 0.7);
       g.add(stool);
     }
 
@@ -543,6 +422,6 @@ export class ArcadeScene {
 
   /** Full floor extent (16 x 18 m), which the camera must not look past. */
   public getRoomBounds(): { minX: number; maxX: number; minZ: number; maxZ: number } {
-    return { minX: -8, maxX: 8, minZ: -9, maxZ: 9 };
+    return { ...ROOM };
   }
 }

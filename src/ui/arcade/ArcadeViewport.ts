@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { quality } from './quality';
+import { ROOM, WALKABLE } from './layout';
 
 export interface ArcadeViewportOptions {
   scene?: THREE.Scene | THREE.Group;
@@ -14,12 +15,7 @@ export interface PlayableBounds {
 }
 
 /** Walkable floor the camera must keep framed, matching ArcadeScene's bounds. */
-export const DEFAULT_PLAYABLE_BOUNDS: PlayableBounds = {
-  minX: -6.0,
-  maxX: 6.0,
-  minZ: -6.5,
-  maxZ: 6.5,
-};
+export const DEFAULT_PLAYABLE_BOUNDS: PlayableBounds = { ...WALKABLE };
 
 /** NDC fraction of the viewport the playable floor must stay inside (0.92 = 92%). */
 const SCREEN_MARGIN = 0.92;
@@ -67,7 +63,7 @@ export class ArcadeViewport {
   /** True when the whole room fits on screen and the camera trails inside it. */
   public contained = true;
   /** Real floor extent; the camera may zoom in but must never show past these walls. */
-  public roomBounds: PlayableBounds = { minX: -8, maxX: 8, minZ: -9, maxZ: 9 };
+  public roomBounds: PlayableBounds = { ...ROOM };
   public viewportHeight = 600;
   public viewportWidth = 800;
 
@@ -164,16 +160,7 @@ export class ArcadeViewport {
     this.viewportWidth = w || 800;
     this.camera.aspect = this.aspect;
 
-    // Dynamic FOV adjustments: widen FOV on narrow mobile portrait so shop stays in view
-    if (this.aspect < 0.75) {
-      // Portrait smartphone (e.g. 360-430px wide)
-      this.camera.fov = 44;
-    } else if (this.aspect < 1.0) {
-      this.camera.fov = 39;
-    } else {
-      // Desktop widescreen
-      this.camera.fov = 34;
-    }
+    this.camera.fov = 32;
 
     // Fit the walkable floor to the viewport on both axes, then bound how far
     // the camera may trail the player (see fitCameraToBounds).

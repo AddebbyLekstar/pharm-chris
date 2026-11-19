@@ -1,3 +1,4 @@
+import { WALKABLE } from '../../src/ui/arcade/layout';
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as THREE from 'three';
 import { ArcadeViewport } from '../../src/ui/arcade/ArcadeViewport';
@@ -47,7 +48,8 @@ describe('Task 1: ArcadeViewport & ArcadeScene', () => {
     const bounds = scene.getWalkableBounds();
     expect(bounds.minX).toBeLessThan(bounds.maxX);
     expect(bounds.minZ).toBeLessThan(bounds.maxZ);
-    expect(bounds.minX).toBeLessThanOrEqual(-4);
-    expect(bounds.maxX).toBeGreaterThanOrEqual(4);
+    // Bounds come from the layout module: the shop is 8.4 x 9.2 m now, not 16 x 18.
+    expect(bounds.minX).toBeCloseTo(WALKABLE.minX, 5);
+    expect(bounds.maxX).toBeCloseTo(WALKABLE.maxX, 5);
   });
 });

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { QUEUE_SLOTS, ROOM } from './layout';
 import { Customer, Product } from '../../sim/types';
 import { PharmChrisEngine } from '../../sim/engine';
 import { PharmacyShelves3D, normalizeCategory } from './PharmacyShelves3D';
@@ -82,8 +83,9 @@ export class ArcadeCustomerQueue {
     const customer = new ArcadeCustomer(data, 0);
     customer.state = state;
     if (state === 'serving') {
-      customer.position.set(0, 0, 2.8);
-      customer.targetPosition.set(0, 0, 2.8);
+      const front = QUEUE_SLOTS[0];
+      customer.position.set(front.x, 0, ROOM.maxZ + 0.9);
+      customer.targetPosition.set(front.x, 0, front.z);
     }
     this.customers.unshift(customer);
     this.group.add(customer.mesh);
@@ -157,7 +159,7 @@ export class ArcadeCustomerQueue {
       cust.update(delta);
 
       // Remove customer once they exited out the street (z > 10.5)
-      if (cust.state === 'leaving' && cust.position.z >= 10.5) {
+      if (cust.state === 'leaving' && cust.position.z >= ROOM.maxZ + 2.6) {
         this.group.remove(cust.mesh);
         this.customers.splice(i, 1);
       }
