@@ -69,6 +69,30 @@ describe('ArcadeViewport framing', () => {
     });
   }
 
+  // Instabox hermes2 caught this: with the room exactly filling a 1920 px width,
+  // the pan envelope still allowed the camera to trail, and the antibiotic bay
+  // projected 120 px past the right edge while the player stood in it.
+  it('allows no pan when the room exactly fills the width', () => {
+    viewport.resize(1920, 1080);
+    expect(viewport.roomFill).toBeCloseTo(1.0, 1);
+    // Pan is the room's overhang past the frame. At fill 1.0 there is none, and any
+    // trailing slides a wall in and the far bay out (Instabox hermes2, 120 px).
+    expect(viewport.panLimit.x).toBeLessThan(0.05);
+    expect(viewport.panLimit.y).toBeLessThan(0.05);
+  });
+
+  it('keeps every zone on screen on a 1920x1080 desktop', () => {
+    viewport.resize(1920, 1080);
+    for (const zone of ZONES) {
+      settle(viewport, zone.x, zone.z);
+      const p = screenPoint(viewport, zone.x, zone.z);
+      expect(p.x, `${zone.id} x`).toBeGreaterThanOrEqual(0);
+      expect(p.x, `${zone.id} x`).toBeLessThanOrEqual(1920);
+      expect(p.y, `${zone.id} y`).toBeGreaterThanOrEqual(0);
+      expect(p.y, `${zone.id} y`).toBeLessThanOrEqual(1080);
+    }
+  });
+
   it('uses the same 32 degree fov at every aspect', () => {
     for (const [w, h] of [...PHONES, [1280, 800] as [number, number]]) {
       viewport.resize(w, h);

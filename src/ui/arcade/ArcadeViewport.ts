@@ -215,12 +215,13 @@ export class ArcadeViewport {
     this.targetOffset.copy(this.isoDir).multiplyScalar(dist);
     this.roomFill = this.projectedRoomFraction(dist);
     this.contained = this.roomFill <= 1.05;
-    // The room overflows the frame on phones, so the camera trails the player
-    // across the walkable floor instead of being pinned to the middle.
-    this.panLimit.set(
-      Math.min(CONTAINED_PAN, (this.bounds.maxX - this.bounds.minX) / 2),
-      Math.min(CONTAINED_PAN, (this.bounds.maxZ - this.bounds.minZ) / 2)
-    );
+    // How far the frame can slide before a wall leaves the shot: exactly the
+    // overhang the room has beyond the viewport. At fill 1.0 that is zero — panning
+    // there pushed the antibiotic bay 120 px off a 1920 px screen (Instabox hermes2).
+    const slack = Math.max(0, 1 - 1 / Math.max(this.roomFill, 1));
+    const halfX = (this.roomBounds.maxX - this.roomBounds.minX) / 2;
+    const halfZ = (this.roomBounds.maxZ - this.roomBounds.minZ) / 2;
+    this.panLimit.set(Math.min(CONTAINED_PAN, halfX * slack), Math.min(CONTAINED_PAN, halfZ * slack));
   }
 
   /** Public read-out of the shot, so tests and the Playwright gate share one number. */
