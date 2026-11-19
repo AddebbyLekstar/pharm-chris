@@ -12,7 +12,8 @@
 # wait on the job id, then pull.
 set -u
 
-BOX="${1:?usage: instabox-gate.sh <box>}"
+BOX="${1:?usage: instabox-gate.sh <box> [runner]}"
+RUNNER="${2:-scripts/box-run.sh}"
 REPO_LOCAL="C:/Users/hp/pharm-chris"
 REMOTE="/data/home/pc-check"
 
@@ -38,7 +39,7 @@ ROOT=$(npx -y instabox exec "$BOX" -- 'for d in /data/home/pc-check /data/home/p
 echo "ROOT=$ROOT"
 [ -z "$ROOT" ] && { echo "box-run.sh not found on box (push may have failed)"; exit 1; }
 
-START=$(npx -y instabox exec --background "$BOX" --cwd "$ROOT" -- 'bash scripts/box-run.sh' 2>&1)
+START=$(npx -y instabox exec --background "$BOX" --cwd "$ROOT" -- "bash $RUNNER" 2>&1)
 echo "$START" | tail -2
 JOB=$(echo "$START" | grep -oE 'job [0-9a-f]+' | awk '{print $2}')
 [ -z "$JOB" ] && { echo "no job id returned"; exit 1; }
