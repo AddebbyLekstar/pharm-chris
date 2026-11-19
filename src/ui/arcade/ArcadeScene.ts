@@ -312,11 +312,30 @@ export class ArcadeScene {
       this.group.add(guard);
     }
 
-    const register = new THREE.Mesh(chamferBox(0.8, 0.6, 0.7, 0.03), material('steel', 0x1f2421));
-    register.name = 'pharm-register';
-    register.position.set(COUNTER.x, 1.57, COUNTER.z);
-    register.castShadow = true;
-    this.group.add(register);
+    // Till, not a black cube. Three parts is enough to read at 60 px: a compact
+    // base, an angled screen that catches the pendant light, and a brass drawer lip.
+    const till = new THREE.Group();
+    till.name = 'pharm-register';
+    till.position.set(COUNTER.x, 1.27, COUNTER.z);
+    const tillBase = new THREE.Mesh(chamferBox(0.62, 0.22, 0.48, 0.02), material('steel', 0x2b3238));
+    tillBase.position.y = 0.11;
+    tillBase.castShadow = true;
+    till.add(tillBase);
+    const drawer = new THREE.Mesh(chamferBox(0.58, 0.1, 0.44, 0.015), material('wood', 0xb08a4a));
+    drawer.position.set(0, 0.05, 0.01);
+    till.add(drawer);
+    const screen = new THREE.Mesh(
+      chamferBox(0.5, 0.34, 0.05, 0.015),
+      new THREE.MeshStandardMaterial({ color: 0x11201a, emissive: 0x2f8f6a, emissiveIntensity: 0.55, roughness: 0.35 })
+    );
+    screen.position.set(0, 0.42, -0.06);
+    screen.rotation.x = -0.35;
+    screen.castShadow = true;
+    till.add(screen);
+    const keypad = new THREE.Mesh(chamferBox(0.42, 0.03, 0.24, 0.01), material('steel', 0x3a4248));
+    keypad.position.set(0, 0.235, 0.08);
+    till.add(keypad);
+    this.group.add(till);
 
     // Contact shadows under the counter, so it sits on the floor instead of hovering.
     for (const offset of [-1.0, 0, 1.0]) {

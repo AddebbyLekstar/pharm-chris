@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { SHELF_BAYS } from './layout';
+import { chamferBox } from './kit/geometry';
+import { material } from './kit/materials';
+import { mergeRig } from './mergeMeshes';
 import { Product } from '../../sim/types';
 import { artVersion } from './art';
 import { textures, signage } from './textures';
@@ -37,85 +40,90 @@ export class PharmacyShelves3D {
 
   constructor(initialProducts?: Product[]) {
     this.group = new THREE.Group();
+    void initialProducts; // the simulation owns stock; this class renders it
 
-    for (const conf of this.shelfConfigs) {
-      this.stockLevels.set(conf.category, 5);
-    }
+    const version = artVersion();
+    const surf = version === 'v3' || version === 'v4' ? textures() : null;
 
-    if (initialProducts) {
-      for (const p of initialProducts) {
-        const cat = p.isColdChain ? 'cold_chain' : normalizeCategory(p.category);
-        const current = this.stockLevels.get(cat) ?? 0;
-        this.stockLevels.set(cat, current + Math.min(4, p.defaultStock));
-      }
-    }
-
-    this.buildShelvingUnits();
-  }
-
-  private buildShelvingUnits(): void {
-    const surf = artVersion() === 'v3' ? textures() : null;
-
-    // Spec 2.3: Powder-coated forest teal steel uprights + warm wood shelves
     // Darker than the wall on purpose: at 0x1b4d3e the bays dissolved into a wall
     // of the same green and the room lost its only mid-ground layer.
     const tealSteelMat = new THREE.MeshStandardMaterial({
       color: surf ? 0x7c9b90 : 0x1b4d3e,
-      roughness: surf ? 0.55 : 0.40,
+      roughness: surf ? 0.55 : 0.4,
       map: surf ? surf.steelTeal : null,
     });
     const woodShelfMat = new THREE.MeshStandardMaterial({
       color: surf ? 0xffffff : 0x5d4037,
-      roughness: 0.70,
+      roughness: 0.7,
       map: surf ? surf.teak : null,
     });
-    // Spec 2.3: Cold Chain Refrigerator Bay (0xDDEEFF, metalness 0.25, roughness 0.25)
     const fridgeMat = new THREE.MeshStandardMaterial({
       color: 0xddeeff,
       metalness: 0.25,
       roughness: 0.25,
     });
+    for (const conf of this.shelfConfigs) this.stockLevels.set(conf.category, 5);
 
     for (const conf of this.shelfConfigs) {
       const shelfBay = new THREE.Group();
       shelfBay.position.copy(conf.position);
-
       const isFridge = conf.category === 'cold_chain';
-      const bodyGeo = new THREE.BoxGeometry(1.6, 2.6, 0.85);
-      const bodyMesh = new THREE.Mesh(bodyGeo, isFridge ? fridgeMat : tealSteelMat);
-      bodyMesh.position.y = 1.3;
-      bodyMesh.castShadow = true;
-      bodyMesh.receiveShadow = true;
-      shelfBay.add(bodyMesh);
+      const facing = conf.position.x < 0 ? 1 : -1; // +z is the aisle side
 
-      // Add warm wood tiers if not fridge
-      if (!isFridge) {
-        for (let tier = 0; tier < 4; tier++) {
-          const tierGeo = new THREE.BoxGeometry(1.5, 0.05, 0.8);
-          const tierMesh = new THREE.Mesh(tierGeo, woodShelfMat);
-          tierMesh.position.set(0, 0.45 + tier * 0.55, 0);
-          shelfBay.add(tierMesh);
-        }
-      } else {
-        // Spec 2.3: Cold chain internal blue LED backlight
-        const fridgeLight = new THREE.PointLight(0x00e5ff, 0.8, 4.0, 1.2);
-        fridgeLight.position.set(0, 1.4, conf.position.x < 0 ? 0.4 : -0.4);
-        shelfBay.add(fridgeLight);
+      // Open frame, not a solid block. A closed 1.6 x 2.6 x 0.85 box reads as a
+      // painted slab from any angle; five 7 cm panels and four tiers read as a
+      // shelf you could take a box off.
+      const frame = new THREE.Group();
+      const W = 1.6;
+      const H = 2.6;
+      const D = 0.85;
+      const T = 0.07;
+      const panelMat: THREE.Material = isFridge ? fridgeMat : tealSteelMat;
+      const shelfMat: THREE.Material = isFridge ? material('glass') : woodShelfMat;
+      const part = (w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material): void => {
+        const m = new THREE.Mesh(chamferBox(w, h, d, 0.02), mat);
+        m.position.set(x, y, z);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        frame.add(m);
+      };
+      part(T, H, D, -(W / 2 - T / 2), H / 2, 0, panelMat);
+      part(T, H, D, W / 2 - T / 2, H / 2, 0, panelMat);
+      part(W, H, T, 0, H / 2, -(D / 2 - T / 2), panelMat);
+      part(W, T, D, 0, H - T / 2, 0, panelMat);
+      part(W, 0.16, D, 0, 0.08, 0, panelMat);
+      for (let tier = 0; tier < 4; tier++) {
+        part(W - T * 2, 0.045, D - T, 0, 0.42 + tier * 0.55, 0, shelfMat);
       }
 
+      // Cold chain: glass door on the aisle face and an emissive back panel instead
+      // of a fifth point light. A point light per fridge would break the two-light
+      // practical budget the whole phase is measured against.
+      if (isFridge) {
+        const door = new THREE.Mesh(chamferBox(W - T * 2, H - 0.35, 0.03, 0.01), material('glass'));
+        door.position.set(0, H / 2, facing * (D / 2 - 0.02));
+        frame.add(door);
+        const glow = new THREE.Mesh(
+          new THREE.PlaneGeometry(W - T * 3, H - 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x9fe8ef, emissive: 0x2e8b8b, emissiveIntensity: 0.9, roughness: 0.6 })
+        );
+        glow.position.set(0, H / 2, -facing * (D / 2 - T - 0.005));
+        glow.rotation.y = facing > 0 ? 0 : Math.PI;
+        frame.add(glow);
+      }
 
-      // Category Header Label plate
-      const plateGeo = new THREE.BoxGeometry(1.5, 0.3, 0.15);
-      const plateMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(conf.color),
-        roughness: 0.4,
-      });
-      const plate = new THREE.Mesh(plateGeo, plateMat);
-      plate.position.set(0, 2.7, conf.position.x < 0 ? 0.5 : -0.5);
+      mergeRig(frame);
+      shelfBay.add(frame);
+
+      // Category header: a plate with the bay's colour and, when the surface pass is
+      // on, real words. The eye finds labels before geometry.
+      const plate = new THREE.Mesh(
+        chamferBox(1.5, 0.3, 0.15, 0.02),
+        new THREE.MeshStandardMaterial({ color: new THREE.Color(conf.color), roughness: 0.4 })
+      );
+      plate.position.set(0, 2.72, facing * 0.45);
       shelfBay.add(plate);
 
-      // v3: real signage. The eye finds words before it finds geometry, and a bay
-      // with no label is the single strongest "unfinished set" cue in the room.
       if (surf) {
         const face = new THREE.Mesh(
           new THREE.PlaneGeometry(1.46, 0.28),
@@ -124,38 +132,43 @@ export class PharmacyShelves3D {
             roughness: 0.42,
             metalness: 0.0,
             emissive: new THREE.Color(conf.color).multiplyScalar(0.18),
-            emissiveMap: null,
           })
         );
-        const facing = conf.position.x < 0 ? 1 : -1;
-        face.position.set(0, 2.7, (conf.position.x < 0 ? 0.5 : -0.5) + facing * 0.079);
+        face.position.set(0, 2.72, facing * (0.45 + 0.079));
         if (facing < 0) face.rotation.y = Math.PI;
         shelfBay.add(face);
       }
 
-      // Display boxes: one InstancedMesh per bay (9 draws -> 1 draw per bay).
-      const boxGeo = new THREE.BoxGeometry(0.42, 0.24, 0.3);
-      // Product packs are a lighter tint of the bay colour so they read as stock
-      // against the dark steel, not as part of the fixture.
+      // Stock: one InstancedMesh per bay. Per-instance colour and height so a bay
+      // reads as packs of medicine, not as a row of identical tiles.
+      const boxGeo = chamferBox(0.42, 0.24, 0.3, 0.02);
       const boxMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(conf.color).lerp(new THREE.Color(0xffffff), 0.55),
+        color: 0xffffff,
         roughness: 0.35,
-        emissive: new THREE.Color(conf.color).multiplyScalar(0.12),
+        vertexColors: false,
       });
       const instanced = new THREE.InstancedMesh(boxGeo, boxMat, 12);
       const matrix = new THREE.Matrix4();
+      const tint = new THREE.Color();
+      const base = new THREE.Color(conf.color);
       let index = 0;
       for (let r = 0; r < 4; r++) {
         for (let c = 0; c < 3; c++) {
-          const xOffset = (c - 1) * 0.42;
+          const xOffset = (c - 1) * 0.44;
           const yOffset = 0.55 + r * 0.55;
-          // Sit the packs proud of the body face, otherwise they are inside the box.
-          const zOffset = conf.position.x < 0 ? 0.56 : -0.56;
+          const zOffset = facing * 0.18;
+          const scaleY = 0.75 + ((r * 3 + c) % 4) * 0.12;
           matrix.makeTranslation(xOffset, yOffset, zOffset);
-          instanced.setMatrixAt(index++, matrix);
+          matrix.scale(new THREE.Vector3(0.92, scaleY, 0.9));
+          instanced.setMatrixAt(index, matrix);
+          tint.copy(base).lerp(new THREE.Color(0xffffff), 0.45 + ((r + c) % 3) * 0.12);
+          instanced.setColorAt(index, tint);
+          index++;
         }
       }
       instanced.instanceMatrix.needsUpdate = true;
+      if (instanced.instanceColor) instanced.instanceColor.needsUpdate = true;
+      instanced.castShadow = true;
       instanced.frustumCulled = false;
       shelfBay.add(instanced);
       this.displayBoxMeshes.set(conf.category, instanced);
