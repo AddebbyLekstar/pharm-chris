@@ -35,6 +35,11 @@ would believe it shipped.
    ≤ 24 MB textures on the low tier.
 6. The art leaves room for story: faces, close-ups, and staging beats must be possible
    without another rebuild.
+7. **Both paid expansions are in scope (my call).** Level 1 (aisle, bench, second
+   register) and level 2 (consultation corner) are built from the same modular kit and
+   verified at max level. A shop that reverts to blockout the moment the player buys
+   "Knock Down the Partition" fails the whole point of the rebuild. Each expansion level
+   also steps the camera back one notch, so buying space visibly widens the shot.
 
 ## 3. Non-goals
 
@@ -134,9 +139,25 @@ Six only. Every new surface belongs to one of them, so the shader work stays sma
   have a visible face rather than reading as a plan view.
 - Walls are **thick cutaways** (0.3 m) with a visible plaster cross-section and a
   terracotta trim band, the Sims dollhouse cue.
-- Room fills 82–88% of the narrow axis; the solve keeps the ≥ 46 px character rule.
 - Ceiling omitted, but pendant lamps hang from an implied ceiling plane and cast a
   visible pool of light on the counter.
+
+**The framing arithmetic (this is why the floor plan has to change).** At 360×800,
+32° fov gives ≈ `1395 / d` screen pixels per world metre. So:
+
+- a 1.62 m Chris is `2260 / d` px tall — 46 px needs `d ≤ 49 m`;
+- an `W`-metre-wide room is `1395 W / d` px — 85% of 360 px needs `W ≈ 0.22 d`.
+
+Solving both at `d = 35 m` gives a **≈ 7.7 m-wide shop with Chris at 64 px**. The
+current 16×18 m shell projects to roughly 2.8× the phone width — which is exactly the
+cramped, overflowing frame we have today. The three rules cannot all hold at 16×18 m;
+the floor plan is the variable, not the rules.
+
+**Decision pending (founder):** re-plan the starting shop to a compact ≈ 8 × 9 m floor,
+or keep 16×18 m and give up one rule. Recommendation: shrink. It makes Chris read, it
+makes the loop snappier (dock → shelf ≈ 4 m, not 12 m), and it is what the reference
+game does. Expansions then *add depth and a camera step back*, so buying space visibly
+widens the shot instead of silently overflowing it.
 
 ### 6.6 Density
 
@@ -167,7 +188,7 @@ Both tracks write into the same material library and the same atlas conventions.
 | Asset | Track | Budget |
 |---|---|---|
 | `chris.glb` — body, apron, hair, 10-bone rig, 5 clips | Blender | ≤ 4,200 tris, 512 atlas |
-| `customer.glb` — one rig, 3 outfit variants, 4 accessories (gele, cap, helmet, hijab) | Blender | ≤ 3,600 tris |
+| `customer.glb` — one rig, 3 outfit variants, 4 accessories (gele, cap, helmet, hijab) | Blender | ≤ 3,600 tris total file, ≤ 1,200 per spawned instance; ≤ 500 at crowd LOD |
 | `counter.glb` — body, kick panel, top, glass guard, register | Blender | ≤ 3,000 tris |
 | `shelf_bay.glb` — posts, 4 tiers, brand plate, back panel | Blender | ≤ 2,400 tris |
 | `fridge.glb` — casing, glass door, interior shelves, teal glow | Blender | ≤ 2,200 tris |
@@ -200,6 +221,16 @@ the known AOSP gap.
 | Texture memory | ≤ 24 MB | ≤ 48 MB |
 | Frame p50 (box probe, 6× throttle) | no worse than today's 83 ms | — |
 
+**Population the budget is written against (worst case):** Chris + 6 queued customers +
+3 visible staff = **10 characters**, 4 shelf bays, the counter, the fridge, 24 dressing
+props, and both expansion levels active. Rough allocation: 15k characters, 16k room and
+fixtures, 8k props and stock, 6k headroom.
+
+**Crowd LOD (my call):** the 5th and later simultaneous customers render at ≤ 500 tris
+with a 4-frame stepped walk. The first four — the ones the player is actually looking at —
+get the full mesh. This is what keeps a full 11 a.m. queue inside the gate instead of
+discovering the problem in P5.
+
 Every phase must be measured on all four boxes. A phase that breaks the budget does not
 land, regardless of how it looks.
 
@@ -213,8 +244,9 @@ grille, new camera solve, three-light rig, HUD palette swap. Acceptance: still f
 HUD hidden reads as a place; player ≥ 46 px at 360 px; budget green.
 
 **P2 — Prop kit and stock.** Counter, shelf bays, fridge, 24 dressing props, instanced
-stock with label atlas, signage. Acceptance: the room is dense at 360 px without any prop
-becoming noise; draw calls still ≤ 120.
+stock with label atlas, signage, and the **two expansion levels built as modular kit**.
+Acceptance: the room is dense at 360 px without any prop becoming noise; draw calls still
+≤ 120 **at expansion level 2**, with the camera stepped back.
 
 **P3 — Characters.** Chris rig and clips, customer rig, outfits, accessory attaches,
 idle/walk/carry animation, staff variants. Acceptance: Chris reads as a person at 46 px,
@@ -232,9 +264,15 @@ The narrative pass is a separate project, but this one must not block it. The ar
 delivers:
 
 - **Faces:** head texture swaps for four emotional states, so a dialogue portrait can be
-  rendered from the same mesh (256 px render-to-texture, no separate art).
-- **Close-up:** a camera that can push to 22° fov at ~4 m on any character without the
-  room breaking apart.
+  rendered from the same mesh (256 px render-to-texture, no separate art). **One shared
+  head UV layout across Chris, the customer rig and staff** (my call) — a single
+  four-expression set then covers every character, and retrofitting it later would mean
+  rebuilding meshes and atlases.
+- **Close-up:** a camera that can push to 22° fov at ~4 m on any character, **constrained
+  to the street-side arc ±25° of the established 45° azimuth**. This is a cutaway set,
+  not a model: wall backs, prop backs and side-on AO are not built, and a free orbit
+  would require them. If a story beat ever needs a different angle, that is a new set
+  piece, priced separately.
 - **Staging:** the cutaway wall and doorway exist so a customer can be framed entering,
   and the counter exists so Chris can be framed serving.
 - **Attach points:** hands (carry), head (accessories), counter (props) — story beats can
