@@ -41,7 +41,7 @@ const ZONES = [
 ];
 
 // P1 raised the floor from 38 px: below 46 px Chris cannot be steered by touch.
-const MIN_PLAYER_PX = 46;
+const MIN_PLAYER_PX = 80;
 
 const browser = await chromium.launch(LAUNCH);
 const report = { url: URL_BASE, viewports: [], failures: [] };

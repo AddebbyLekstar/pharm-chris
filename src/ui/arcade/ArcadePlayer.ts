@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { chamferBox } from './kit/geometry';
 import { ArcadeScene, WalkableBounds } from './ArcadeScene';
 import { mergeRig } from './mergeMeshes';
 
@@ -64,6 +65,10 @@ export class ArcadePlayer {
   private buildStylizedModel(): void {
     // Body Root — Bobbing / Sway Pivot
     this.bodyGroup = new THREE.Group();
+    // 1.35x: Chris is a 2.2 m man in a 2.8 m room, the same cheat The Sims Mobile
+    // uses. At true 1.62 m he rendered 47 px tall on a 360 px phone and read as a
+    // pawn; the only alternatives were zooming until the shop left the frame.
+    this.bodyGroup.scale.setScalar(1.35);
     this.mesh.add(this.bodyGroup);
 
     // Spec 1.2: Melanin Deep Rich skin
@@ -118,12 +123,37 @@ export class ArcadePlayer {
     this.headSocket.position.set(0, 1.55, 0);
     this.bodyGroup.add(this.headSocket);
 
-    // Spec 1.1: Head Cranium — Width 0.48, Height 0.48, Depth 0.48
-    const headGeo = new THREE.BoxGeometry(0.48, 0.48, 0.48);
+    // Head: chamfered, not a cube. At 47 px the silhouette of the skull is most of
+    // what tells the player which blob is theirs; a hard-edged box reads as a crate.
+    const headGeo = chamferBox(0.58, 0.6, 0.56, 0.1);
     const head = new THREE.Mesh(headGeo, skinMat);
+    head.name = 'player-head';
     head.position.y = 0.24;
     head.castShadow = true;
     this.headSocket.add(head);
+
+    // Face. Three small shapes is the difference between "a person" and "a pawn" at
+    // mobile scale: eyes to aim the gaze, brows to carry expression, a mouth line.
+    const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf7f2e8, roughness: 0.4 });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: 0.3 });
+    for (const side of [-1, 1]) {
+      const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.058, 10, 8), scleraMat);
+      sclera.position.set(side * 0.11, 0.28, 0.225);
+      this.headSocket.add(sclera);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), pupilMat);
+      pupil.position.set(side * 0.11, 0.28, 0.268);
+      this.headSocket.add(pupil);
+      const brow = new THREE.Mesh(chamferBox(0.11, 0.025, 0.03, 0.008), pupilMat);
+      brow.position.set(side * 0.11, 0.355, 0.245);
+      brow.rotation.z = side * -0.12;
+      this.headSocket.add(brow);
+    }
+    const nose = new THREE.Mesh(chamferBox(0.07, 0.09, 0.06, 0.02), skinMat);
+    nose.position.set(0, 0.20, 0.26);
+    this.headSocket.add(nose);
+    const mouth = new THREE.Mesh(chamferBox(0.1, 0.022, 0.02, 0.006), new THREE.MeshStandardMaterial({ color: 0x4a2a1e, roughness: 0.6 }));
+    mouth.position.set(0, 0.115, 0.253);
+    this.headSocket.add(mouth);
 
     // Hair (textured dark crop)
     const hairGeo = new THREE.BoxGeometry(0.52, 0.18, 0.52);
@@ -193,6 +223,18 @@ export class ArcadePlayer {
     leftShoe.position.set(0, -0.68, 0.06);
     this.leftLegSocket.add(leftShoe);
     this.mesh.add(this.leftLegSocket);
+
+    // Player marker: a soft ring under the feet. Cheap (one draw), and it answers
+    // the question the art review kept asking — where am I? — without a HUD arrow.
+    const marker = new THREE.Mesh(
+      new THREE.RingGeometry(0.34, 0.46, 28),
+      new THREE.MeshBasicMaterial({ color: 0x7cf0c0, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide })
+    );
+    marker.name = 'player-marker';
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.y = 0.015;
+    marker.renderOrder = 2;
+    this.mesh.add(marker);
 
     // Right Leg Socket
     this.rightLegSocket = new THREE.Group();

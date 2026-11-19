@@ -67,11 +67,10 @@ export function buildRoomShell(options: RoomShellOptions = {}): THREE.Group {
 
   // Front wall, split around a 2.2 m doorway that sits dead centre.
   //
-  // The street side is cut to 0.9 m: the camera looks in from the front, so a
-  // full-height near wall hides the doorway — which is exactly where Chris enters
-  // and where the player spends the first thirty seconds. A shopfront kick wall
-  // keeps the section read and stops the occluded-character bug.
-  const FRONT_H = 0.9;
+  // The street side is cut to a 0.35 m kerb. At 0.9 m it still hid Chris's head
+  // when he stood at the entrance — the camera looks down at ~43 degrees, so any
+  // near wall taller than ~0.4 m eats a two-metre character standing behind it.
+  const FRONT_H = 0.35;
   const segmentWidth = (SHOP_W - DOOR_WIDTH) / 2;
   const segmentX = DOOR_WIDTH / 2 + segmentWidth / 2;
   group.add(wall('pharm-wall-front-l', segmentWidth, FRONT_H, WALL_T, -segmentX, FRONT_H / 2, outerZFront, PALETTE.plasterCream));

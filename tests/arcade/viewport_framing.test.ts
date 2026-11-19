@@ -47,13 +47,13 @@ describe('ArcadeViewport framing', () => {
   });
 
   for (const [w, h] of PHONES) {
-    it(`fills 82-88% of the width and keeps Chris >= 46px at ${w}x${h}`, () => {
+    it(`covers the width and keeps Chris >= 80px at ${w}x${h}`, () => {
       viewport.resize(w, h);
       // The room covers the width and then some: framing it smaller than the
       // frame is what used to shrink Chris below a tappable size.
       expect(viewport.roomFill).toBeGreaterThanOrEqual(1.0);
-      expect(viewport.roomFill).toBeLessThanOrEqual(1.7);
-      expect(viewport.playerPixels(0, 0.2)).toBeGreaterThanOrEqual(46);
+      expect(viewport.roomFill).toBeLessThanOrEqual(2.4);
+      expect(viewport.playerPixels(0, 0.2)).toBeGreaterThanOrEqual(80);
     });
 
     it(`keeps every zone on screen at ${w}x${h} while the player stands in it`, () => {
@@ -105,7 +105,7 @@ describe('ArcadeViewport framing', () => {
     const portraitFill = viewport.roomFill;
     viewport.resize(800, 360);
     expect(viewport.roomFill).toBeGreaterThanOrEqual(0.99);
-    expect(viewport.roomFill).toBeLessThanOrEqual(1.7);
+    expect(viewport.roomFill).toBeLessThanOrEqual(2.4);
     viewport.resize(360, 800);
     expect(viewport.roomFill).toBeCloseTo(portraitFill, 2);
   });
@@ -127,6 +127,6 @@ describe('ArcadeViewport framing', () => {
     // On desktop the width is the binding constraint, so the room fills it.
     expect(viewport.roomFill).toBeGreaterThanOrEqual(0.98);
     expect(viewport.roomFill).toBeLessThanOrEqual(1.2);
-    expect(viewport.playerPixels(0, 0.2)).toBeGreaterThanOrEqual(46);
+    expect(viewport.playerPixels(0, 0.2)).toBeGreaterThanOrEqual(80);
   });
 });

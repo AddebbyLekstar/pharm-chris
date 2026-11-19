@@ -21,10 +21,13 @@ export const DEFAULT_PLAYABLE_BOUNDS: PlayableBounds = { ...WALKABLE };
 /** Height of the tallest fixture that must stay framed, in metres. */
 const FRAME_HEIGHT = 2.6;
 /** Eye-to-hair height of the player, used to keep the character controllable. */
-const CHARACTER_HEIGHT = 1.62;
-const MIN_CHARACTER_PX = 46;
-/** Metres the camera may trail when the whole room already fits on screen. */
-const CONTAINED_PAN = 2.2;
+const CHARACTER_HEIGHT = 2.2;
+// Character size floor, in px. The design said 46, and at 46 Chris is a 47 px blob
+// on a 360 px phone: findable, not readable. The Sims Mobile puts its people at
+// ~10-14 % of screen height, and the user's brief is that Chris is a star, so the
+// camera trades room-in-frame for a character you can actually see. 80 px is 10 %
+// of an 800 px viewport.
+const MIN_CHARACTER_PX = 80;
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
@@ -215,13 +218,27 @@ export class ArcadeViewport {
     this.targetOffset.copy(this.isoDir).multiplyScalar(dist);
     this.roomFill = this.projectedRoomFraction(dist);
     this.contained = this.roomFill <= 1.05;
-    // How far the frame can slide before a wall leaves the shot: exactly the
-    // overhang the room has beyond the viewport. At fill 1.0 that is zero — panning
-    // there pushed the antibiotic bay 120 px off a 1920 px screen (Instabox hermes2).
-    const slack = Math.max(0, 1 - 1 / Math.max(this.roomFill, 1));
-    const halfX = (this.roomBounds.maxX - this.roomBounds.minX) / 2;
-    const halfZ = (this.roomBounds.maxZ - this.roomBounds.minZ) / 2;
-    this.panLimit.set(Math.min(CONTAINED_PAN, halfX * slack), Math.min(CONTAINED_PAN, halfZ * slack));
+    // Pan envelope, in two regimes.
+    //
+    // Fill 1.0 is the contained case: the room exactly fills the frame, so any pan
+    // slides a wall in and the far bay out (Instabox hermes2, 120 px). Zero pan.
+    //
+    // Once the camera has zoomed in to keep Chris at 46 px the room overflows, so
+    // the camera has to be free to centre the player anywhere on the walkable floor
+    // — otherwise standing in a side bay leaves you 2-3 px off the edge (both PC
+    // boxes, all four phone widths). Pan ramps to the walkable half over the first
+    // 25 % of zoom so it is never a step change.
+    const zoomT = clamp((this.roomFill - 1) / 0.25, 0, 1);
+    const walkHalfX = (this.bounds.maxX - this.bounds.minX) / 2;
+    const walkHalfZ = (this.bounds.maxZ - this.bounds.minZ) / 2;
+    // Stop 1.2 m short of the walkable edge. At full zoom the frame is only ~4 m
+    // wide, so letting the target reach the wall edge put the shop's front boundary
+    // — and the empty street beyond it — across the bottom third of the screen.
+    const EDGE_MARGIN = 1.2;
+    this.panLimit.set(
+      Math.max(0, walkHalfX * zoomT - EDGE_MARGIN),
+      Math.max(0, walkHalfZ * zoomT - EDGE_MARGIN)
+    );
   }
 
   /** Public read-out of the shot, so tests and the Playwright gate share one number. */
@@ -291,9 +308,12 @@ export class ArcadeViewport {
 
   public updateCameraFollow(targetPos: THREE.Vector3, delta: number = 0.016): void {
     // Trail the player, but never far enough to push the shop off screen.
+    // Aim ~0.9 m above the player's feet, not at them. Looking at the floor pushes
+    // the room into the top third and leaves the bottom of a tall phone as empty
+    // pavement; lifting the aim point centres the room and the character in frame.
     this.clampedTarget.set(
       clamp(targetPos.x, this.shopCenter.x - this.panLimit.x, this.shopCenter.x + this.panLimit.x),
-      targetPos.y,
+      targetPos.y + 0.9,
       clamp(targetPos.z, this.shopCenter.z - this.panLimit.y, this.shopCenter.z + this.panLimit.y)
     );
 

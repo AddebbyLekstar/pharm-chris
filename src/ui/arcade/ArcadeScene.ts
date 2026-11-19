@@ -266,7 +266,8 @@ export class ArcadeScene {
 
     // Street beyond the doorway. Without it the 2.2 m opening looks onto the void,
     // and the doorway is the whole reason the front wall is cut rather than solid.
-    const streetMat = new THREE.MeshStandardMaterial({ color: 0x3c3f3d, roughness: 0.85 });
+    // Lighter than the void: the street is ground the shop sits on, not a black hole.
+    const streetMat = new THREE.MeshStandardMaterial({ color: 0x6a6f68, roughness: 0.9 });
     const street = new THREE.Mesh(new THREE.PlaneGeometry(SHOP_W + 6, 5), streetMat);
     street.name = 'pharm-street';
     street.rotation.x = -Math.PI / 2;
