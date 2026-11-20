@@ -88,6 +88,27 @@ device framebuffer (`adb exec-out screencap -p`) showed the shop correctly.
 dock → shelf → counter rounds, cash and served deltas, a save/reload round trip, and
 a 6×-throttled phone pass.
 
+## Result of record — 2026-11-20, character draw pass (`index-D__Q-wKw.js`, 192 tests)
+
+One change: every character rig merges to one mesh per animated joint on a single
+vertex-coloured material (`kit/rigMerge.ts`). Marker: **192 tests** (was 188) and a
+phone frame at **91** draw calls.
+
+| Box | Build | Tests | Layout gate | Draw calls | Errors |
+|---|---|---|---|---|---|
+| `hermes` | clean | 192/192 | pass (7 viewports) | 90.3 avg / 91 max phone, **202 desktop** | 0 |
+| `hermes2` | clean | 192/192 | pass (7 viewports) | 90.3 avg / 91 max phone, **200 desktop** | 0 |
+| `hermesandroid` | clean | — | pass (360×495) | 78, 10,472 tris | 0 |
+| `hermesandroid2` | clean | — | pass (360×495) | 78, 10,472 tris | 0 |
+
+Budgets: phone ≤120 (91), desktop ≤240 (202), textures ≤24 MB (16.75). A forced
+six-customer queue on the desktop tier measures **218** draws where it measured 287
+before this pass — the worst case now sits inside the ceiling instead of 20 % over it.
+
+What the merge costs: per-part roughness and metalness collapse to one value
+(0.62 / 0.02) for the whole character. Skin, cloth, hair and accessories keep their
+colours through vertex colours; only the sheen variation is gone.
+
 ## Result of record — 2026-11-20, P2 prop kit (`index-D__Q-wKw.js`)
 
 P2 adds the dressing, the labelled stock and the modular expansions. Marker that the
