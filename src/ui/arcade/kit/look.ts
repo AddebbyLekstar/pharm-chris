@@ -1,0 +1,266 @@
+import type { Customer } from '../../../sim/types';
+
+/**
+ * Who walks into the shop.
+ *
+ * Before this module every customer who was not one of the four authored story
+ * characters shared one silhouette and picked one of four colour sets by summing
+ * character codes. A queue of eight read as one man photocopied, and the "varied
+ * Lagos street presets" never varied in the dimension that reads at 46 px: shape.
+ *
+ * Looks are derived, not stored: the same customer id always produces the same
+ * person, so a reload does not reshuffle the crowd. Everything here is pure, so the
+ * variety can be asserted in a test instead of eyeballed in a screenshot.
+ */
+
+export const OUTFITS = ['tunic', 'agbada', 'wrapper', 'tee', 'hoodie', 'kaftan'] as const;
+export type OutfitFamily = (typeof OUTFITS)[number];
+
+export const HAIRSTYLES = ['fade', 'lowcut', 'braids', 'headwrap', 'cap', 'bald', 'helmet'] as const;
+export type Hairstyle = (typeof HAIRSTYLES)[number];
+
+/** Authored headgear that outranks the procedural hairstyle. */
+export const HEADPIECES = ['gele', 'helmet', 'newsboy', 'fula', 'hijab'] as const;
+export type Headpiece = (typeof HEADPIECES)[number];
+
+export interface CharacterLook {
+  skin: number;
+  /** Garment / uniform colour. */
+  top: number;
+  bottom: number;
+  /** Trim: headtie, cap, bag, beads. */
+  accent: number;
+  hairColor: number;
+  outfit: OutfitFamily;
+  hair: Hairstyle;
+  headpiece: Headpiece | null;
+  /** Width multiplier, 0.90–1.12. Silhouette, not scale: height does not follow it. */
+  build: number;
+  /** Height multiplier, 0.92–1.08, applied at the hips so feet stay on the floor. */
+  height: number;
+  beard: boolean;
+  glasses: boolean;
+  /** Carries a shoulder bag; grounds a silhouette that is otherwise a box. */
+  bag: boolean;
+}
+
+type Gender = 'woman' | 'man';
+
+/** FNV-1a. Stable across runs and platforms; the key the whole cast is derived from. */
+export function hashId(input: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** mulberry32: tiny, deterministic, good enough to draw a crowd from. */
+function rng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const pick = <T>(list: readonly T[], r: number): T => list[Math.floor(r * list.length) % list.length];
+
+const SKINS = [0x3b200f, 0x452814, 0x4a2e1b, 0x532e17, 0x3e2312, 0x5b3520] as const;
+
+const TOPS = [
+  0x00897b, 0x6a1b9a, 0x0288d1, 0xc2185b, 0xd18b1f, 0xc2683f, 0x303f9f, 0x2e7d5b, 0xf9a825,
+  0x37474f, 0xbf360c, 0x1b4a3c,
+] as const;
+
+const BOTTOMS = [0x212121, 0x1a237e, 0x263238, 0x37474f, 0x4e342e, 0x1b2a41] as const;
+
+const ACCENTS = [0xd84315, 0xd4af37, 0xff5722, 0x00e676, 0xeceff1, 0xbf360c] as const;
+
+const HAIR_COLOURS = [0x0f0f0f, 0x1a1210, 0x2b1b12] as const;
+
+const WOMAN_OUTFITS: readonly OutfitFamily[] = ['wrapper', 'tunic', 'kaftan', 'wrapper'];
+const MAN_OUTFITS: readonly OutfitFamily[] = ['agbada', 'tee', 'hoodie', 'tunic', 'tee'];
+const WOMAN_HAIR: readonly Hairstyle[] = ['headwrap', 'braids', 'lowcut', 'headwrap'];
+const MAN_HAIR: readonly Hairstyle[] = ['fade', 'lowcut', 'cap', 'bald', 'fade'];
+
+/**
+ * Authored cast. These four have dialogue, a name in the HUD and a recognisable
+ * entrance, so their look is fixed rather than derived — a mother-of-the-street in
+ * a hoodie would undercut the scene the writing sets up.
+ */
+const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<CharacterLook, 'outfit' | 'hair'> }> = [
+  {
+    match: 'mama',
+    look: {
+      skin: 0x532e17,
+      top: 0xf57c00,
+      bottom: 0xd84315,
+      accent: 0xbf360c,
+      hairColor: 0x0f0f0f,
+      outfit: 'wrapper',
+      hair: 'headwrap',
+      headpiece: 'gele',
+      build: 1.08,
+      height: 0.96,
+      beard: false,
+      glasses: false,
+      bag: false,
+    },
+  },
+  {
+    match: 'emeka',
+    look: {
+      skin: 0x452814,
+      top: 0xfdd835,
+      bottom: 0x1a237e,
+      accent: 0x1a1a1a,
+      hairColor: 0x0f0f0f,
+      outfit: 'tee',
+      hair: 'helmet',
+      headpiece: 'helmet',
+      build: 0.96,
+      height: 1.02,
+      beard: false,
+      glasses: false,
+      bag: true,
+    },
+  },
+  {
+    match: 'bayo',
+    look: {
+      skin: 0x3b200f,
+      top: 0xfbc02d,
+      bottom: 0x37474f,
+      accent: 0x5d4037,
+      hairColor: 0x0f0f0f,
+      outfit: 'tee',
+      hair: 'cap',
+      headpiece: 'newsboy',
+      build: 1.04,
+      height: 0.99,
+      beard: true,
+      glasses: false,
+      bag: false,
+    },
+  },
+  {
+    match: 'danjuma',
+    look: {
+      skin: 0x4a2e1b,
+      top: 0x1e293b,
+      bottom: 0x0f172a,
+      accent: 0xd4af37,
+      hairColor: 0x0f0f0f,
+      outfit: 'agbada',
+      hair: 'cap',
+      headpiece: 'fula',
+      build: 1.12,
+      height: 1.04,
+      beard: true,
+      glasses: false,
+      bag: false,
+    },
+  },
+];
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Deterministic look for a customer. Same id, same person, every load. */
+export function customerLook(customer: Pick<Customer, 'id'>): CharacterLook {
+  const id = customer.id.toLowerCase();
+  for (const entry of AUTHORED) {
+    if (id.includes(entry.match)) return { ...generatedLook(id), ...entry.look };
+  }
+  return generatedLook(id);
+}
+
+function generatedLook(id: string): CharacterLook {
+  const seed = hashId(id);
+  const r = rng(seed);
+  const gender: Gender = r() < 0.52 ? 'woman' : 'man';
+  const skin = pick(SKINS, r());
+  const top = pick(TOPS, r());
+  const bottom = pick(BOTTOMS, r());
+  const accent = pick(ACCENTS, r());
+  const hairColor = pick(HAIR_COLOURS, r());
+  const outfit = pick(gender === 'woman' ? WOMAN_OUTFITS : MAN_OUTFITS, r());
+  const hair = pick(gender === 'woman' ? WOMAN_HAIR : MAN_HAIR, r());
+
+  return {
+    skin,
+    top,
+    bottom,
+    accent,
+    hairColor,
+    outfit,
+    hair,
+    headpiece: hair === 'headwrap' ? (r() < 0.35 ? 'hijab' : 'gele') : null,
+    build: round2(0.9 + r() * 0.22),
+    height: round2(0.92 + r() * 0.16),
+    beard: gender === 'man' && hair !== 'bald' && r() < 0.3,
+    glasses: r() < 0.18,
+    bag: r() < 0.3,
+  };
+}
+
+/**
+ * Staff uniforms. Fixed by role: the player has to tell at a glance whether the
+ * person behind the counter is theirs, and the three roles should not look like
+ * three passing customers.
+ */
+const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
+  stocker: {
+    skin: 0x452814,
+    top: 0x2e7d5b,
+    bottom: 0x1f2421,
+    accent: 0xf1e6cf,
+    hairColor: 0x0f0f0f,
+    outfit: 'tee',
+    hair: 'fade',
+    headpiece: null,
+    build: 1.02,
+    height: 1.0,
+    beard: false,
+    glasses: false,
+    bag: false,
+  },
+  cashier: {
+    skin: 0x532e17,
+    top: 0x1e5a8a,
+    bottom: 0x1f2421,
+    accent: 0xf1e6cf,
+    hairColor: 0x1a1210,
+    outfit: 'tunic',
+    hair: 'braids',
+    headpiece: null,
+    build: 0.94,
+    height: 0.95,
+    beard: false,
+    glasses: true,
+    bag: false,
+  },
+  cleaner: {
+    skin: 0x3b200f,
+    top: 0x7a4a1e,
+    bottom: 0x1f2421,
+    accent: 0xf1e6cf,
+    hairColor: 0x0f0f0f,
+    outfit: 'tee',
+    hair: 'lowcut',
+    headpiece: null,
+    build: 1.06,
+    height: 1.03,
+    beard: true,
+    glasses: false,
+    bag: false,
+  },
+};
+
+export function staffLook(role: 'stocker' | 'cashier' | 'cleaner'): CharacterLook {
+  return { ...STAFF[role] };
+}

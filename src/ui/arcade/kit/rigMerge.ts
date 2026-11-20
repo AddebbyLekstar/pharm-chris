@@ -35,6 +35,10 @@ function isMergeable(mesh: THREE.Mesh): boolean {
   if (!mesh.isMesh) return false;
   const material = mesh.material as THREE.MeshStandardMaterial;
   if (Array.isArray(mesh.material)) return false;
+  // Only lit surfaces merge. Unlit markers (the symptom bubble, ground rings) keep
+  // their own material because baking them would freeze them into the rig: their
+  // spin and hover are driven by their own transform, which the merge consumes.
+  if (!material.isMeshStandardMaterial) return false;
   // Transparent parts (glass, glow markers) must keep their own material.
   if (material.transparent) return false;
   // Anything textured needs its UVs and its own material.
@@ -49,8 +53,12 @@ function isMergeable(mesh: THREE.Mesh): boolean {
  * Geometry is made non-indexed first: primitives in these rigs mix indexed and
  * non-indexed sources (BoxGeometry vs RoundedBox), and mergeGeometries refuses
  * attribute sets that do not line up.
+ *
+ * `matrix` overrides the mesh's own local matrix — used when flattening a whole rig
+ * into one mesh, where each part has to be expressed relative to the rig root rather
+ * than relative to its own parent.
  */
-function bake(mesh: THREE.Mesh): THREE.BufferGeometry {
+function bake(mesh: THREE.Mesh, matrix?: THREE.Matrix4): THREE.BufferGeometry {
   const material = mesh.material as THREE.MeshStandardMaterial;
   const source = mesh.geometry as THREE.BufferGeometry;
   let geo = source.index ? source.toNonIndexed() : source.clone();
@@ -69,8 +77,12 @@ function bake(mesh: THREE.Mesh): THREE.BufferGeometry {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-  mesh.updateMatrix();
-  geo.applyMatrix4(mesh.matrix);
+  if (matrix) {
+    geo.applyMatrix4(matrix);
+  } else {
+    mesh.updateMatrix();
+    geo.applyMatrix4(mesh.matrix);
+  }
   return geo;
 }
 
@@ -81,7 +93,7 @@ function mergeGroup(group: THREE.Object3D): void {
   // material, so the whole crowd batches instead of binding a colour per part.
   if (targets.length < 1) return;
 
-  const geos = targets.map(bake);
+  const geos = targets.map((mesh) => bake(mesh));
   const merged = mergeGeometries(geos, false);
   for (const geo of geos) geo.dispose();
   if (!merged) return;
@@ -121,4 +133,44 @@ export function rigMeshCount(root: THREE.Object3D): number {
     if ((obj as THREE.Mesh).isMesh) n++;
   });
   return n;
+}
+
+/**
+ * Flatten an entire rig into one mesh, joints included.
+ *
+ * Correct only for characters that never animate per joint — staff and any other
+ * static figure. A character that walks must keep `mergeRigVertexColors`, because
+ * collapsing its limbs would freeze the walk cycle into a T-pose silhouette.
+ *
+ * Transparent and unlit children (the ground shadow) are left alone: they need their
+ * own material, and one of them needs its own transform.
+ */
+export function mergeRigSingleMesh(root: THREE.Object3D): void {
+  root.updateMatrixWorld(true);
+  const toRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
+
+  const targets: THREE.Mesh[] = [];
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (obj !== root && mesh.isMesh && isMergeable(mesh)) targets.push(mesh);
+  });
+  if (targets.length < 2) return;
+
+  const geos = targets.map((mesh) => {
+    const relative = new THREE.Matrix4().multiplyMatrices(toRoot, mesh.matrixWorld);
+    return bake(mesh, relative);
+  });
+  const merged = mergeGeometries(geos, false);
+  for (const geo of geos) geo.dispose();
+  if (!merged) return;
+
+  const castShadow = targets.some((m) => m.castShadow);
+  const receiveShadow = targets.some((m) => m.receiveShadow);
+  for (const mesh of targets) mesh.removeFromParent();
+
+  const out = new THREE.Mesh(merged, CHARACTER_MATERIAL);
+  out.castShadow = castShadow;
+  out.receiveShadow = receiveShadow;
+  out.name = 'rig-flat';
+  root.add(out);
 }
