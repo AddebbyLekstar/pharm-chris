@@ -3,6 +3,7 @@ import { Onboarding, ONBOARDING_DONE, nextObjective } from '../../sim/onboarding
 import { EndgameReport } from '../../sim/types';
 import { OfflineResult, formatDuration } from '../../sim/save';
 import { FunnelReport, Telemetry, downloadFunnel } from '../../sim/telemetry';
+import { nairaPlainText, nairaToSvgMarkup, setNairaHtml, setNairaText } from './kit/naira';
 
 export interface HudContext {
   stackCount: number;
@@ -39,6 +40,123 @@ const compact = (n: number): string => {
   if (abs >= 1e6) return `₦${(n / 1e6).toFixed(abs >= 1e7 ? 0 : 1)}m`;
   if (abs >= 1e5) return `₦${Math.round(n / 1e3)}k`;
   return `₦${Math.round(n).toLocaleString('en-NG')}`;
+};
+
+/**
+ * Static HUD chrome, exported so the naira render-boundary test runs against
+ * the exact markup the game ships. Currency starts at ₦0 here and is converted
+ * by the caller, like every other DOM sink in this file.
+ */
+export const hudShellHtml = (): string => `
+      <div class="topbar">
+        <div class="row">
+          <div class="chip"><div class="k">Cash</div><div class="v" id="hud-cash" style="color:#00E676">₦0</div></div>
+          <div class="chip"><div class="k">Day</div><div class="v" id="hud-day">1 / 90</div></div>
+          <div class="chip"><div class="k">Stack</div><div class="v" id="hud-stack" style="color:#ffd54f">0 / 5</div></div>
+        </div>
+        <div class="row">
+          <div class="chip"><div class="k">Trust</div><div class="v" id="hud-trust">50</div></div>
+          <div class="chip"><div class="k">Staff</div><div class="v" id="hud-staff" style="color:#8fd6ff">0</div></div>
+          <div class="chip" style="border-color:#6b2c2c"><div class="k" style="color:#e5a1a1">Debt</div><div class="v" id="hud-debt" style="color:#ff6b6b">₦0</div></div>
+        </div>
+      </div>
+      <div id="pharm-objective">📦 WALK TO THE DOCK</div>
+      <div id="pharm-toasts"></div>
+      <div class="hint"><span id="hud-hint">WASD / drag to move — hold still on a zone to act</span></div>
+      <button id="pharm-invest-btn">INVEST<span class="badge" id="hud-invest-hint">licences · staff · upgrades</span></button>
+      <div id="pharm-drawer">
+        <header><h3>Store Investment</h3><button class="buy ghost" id="pharm-drawer-close" style="min-height:32px">✕</button></header>
+        <div class="body" id="pharm-drawer-body"></div>
+      </div>
+      <div id="pharm-debug"></div>
+    `;
+
+/**
+ * Drawer markup, exported so the naira render-boundary test covers the real
+ * buy buttons and wages, not a copy. Currency stays authored as ₦ here.
+ */
+export const drawerHtml = (r: StoreRun): string => {
+  const nextTier = r.nextLicenseTier();
+  const nextExpansion = r.nextExpansion();
+  const upgradeRows = (Object.keys(UPGRADES) as UpgradeId[])
+    .map((id) => {
+      const spec = UPGRADES[id];
+      const level = r.state.upgrades[id];
+      const cost = r.upgradeCost(id);
+      const maxed = !Number.isFinite(cost);
+      return `<div class="item">
+          <div><div class="t">${spec.name} <span class="s">Lv ${level}/${spec.maxLevel}</span></div><div class="s">${spec.description}</div></div>
+          <button class="buy" data-buy="upgrade:${id}" ${maxed || r.cash < cost ? 'disabled' : ''}>${maxed ? 'MAX' : money(cost)}</button>
+        </div>`;
+    })
+    .join('');
+
+  const staffRows = (Object.keys(EMPLOYEES) as EmployeeRole[])
+    .map((role) => {
+      const spec = EMPLOYEES[role];
+      const state = r.state.employees[role];
+      const maxed = state.count >= spec.maxCount;
+      return `<div class="item">
+          <div><div class="t">${spec.name} <span class="s">${state.count}/${spec.maxCount}</span></div>
+          <div class="s">${money(spec.dailyWage)}/day · morale ${Math.round(state.morale)}%</div></div>
+          <button class="buy" data-buy="staff:${role}" ${maxed || r.cash < spec.hireCost ? 'disabled' : ''}>${maxed ? 'MAX' : `HIRE ${money(spec.hireCost)}`}</button>
+        </div>`;
+    })
+    .join('');
+
+  const ownedLicences = LICENSE_TIERS.filter((t) => r.state.licenses.includes(t.tier))
+    .map((t) => `<span style="font-size:0.68rem;color:#8fd6ff">${t.name}</span>`)
+    .join(' · ');
+
+  return `
+      <div class="card">
+        <h4>Licence desk</h4>
+        ${
+          nextTier
+            ? `<div class="item"><div><div class="t">${nextTier.name}</div><div class="s">${nextTier.description}</div></div>
+               <button class="buy" data-buy="license" ${r.cash < nextTier.cost ? 'disabled' : ''}>${money(nextTier.cost)}</button></div>`
+            : `<div class="s">Every licence is open. The whole street is yours.</div>`
+        }
+        <div class="s" style="margin-top:6px">Owned: ${ownedLicences || 'none'}</div>
+      </div>
+
+      <div class="card">
+        <h4>Upgrades</h4>
+        ${upgradeRows}
+      </div>
+
+      <div class="card">
+        <h4>Staff — ${money(r.dailyWages())}/day wages</h4>
+        ${staffRows}
+      </div>
+
+      <div class="card">
+        <h4>Floor space</h4>
+        ${
+          nextExpansion
+            ? `<div class="item"><div><div class="t">${nextExpansion.name}</div><div class="s">${nextExpansion.description}</div></div>
+               <button class="buy" data-buy="expansion" ${r.cash < nextExpansion.cost ? 'disabled' : ''}>${money(nextExpansion.cost)}</button></div>`
+            : `<div class="s">Fully expanded: 90-day flagship store.</div>`
+        }
+      </div>
+
+      <div class="card">
+        <h4>Chief Okonkwo — ${money(r.debt)} outstanding</h4>
+        <div class="s" style="margin-bottom:6px">Share of daily profit sent to the debt: <b id="debt-share-label">${Math.round(r.debtServiceShare * 100)}%</b></div>
+        <input type="range" id="debt-share" min="0" max="100" step="10" value="${Math.round(r.debtServiceShare * 100)}" />
+        <div class="item" style="margin-top:6px">
+          <div class="s">Cash on hand ${money(r.cash)}</div>
+          <button class="buy" data-buy="debt" ${r.cash <= 0 || r.debt <= 0 ? 'disabled' : ''}>PAY ${money(Math.min(r.cash, r.debt))}</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>System</h4>
+        <div class="item"><div class="s">Autosaves every day and on every purchase.</div><button class="buy ghost" id="hud-save">SAVE</button></div>
+        <div class="item"><div class="s">Local funnel export (no PII leaves this device).</div><button class="buy ghost" id="hud-export">EXPORT</button></div>
+        <div class="item"><div class="s">Wipe the save and start a new 90-day season.</div><button class="buy ghost" id="hud-new">NEW RUN</button></div>
+      </div>
+    `;
 };
 
 export class ArcadeStoreHud {
@@ -140,29 +258,7 @@ export class ArcadeStoreHud {
 
     const hud = document.createElement('div');
     hud.id = 'pharm-hud';
-    hud.innerHTML = `
-      <div class="topbar">
-        <div class="row">
-          <div class="chip"><div class="k">Cash</div><div class="v" id="hud-cash" style="color:#00E676">₦0</div></div>
-          <div class="chip"><div class="k">Day</div><div class="v" id="hud-day">1 / 90</div></div>
-          <div class="chip"><div class="k">Stack</div><div class="v" id="hud-stack" style="color:#ffd54f">0 / 5</div></div>
-        </div>
-        <div class="row">
-          <div class="chip"><div class="k">Trust</div><div class="v" id="hud-trust">50</div></div>
-          <div class="chip"><div class="k">Staff</div><div class="v" id="hud-staff" style="color:#8fd6ff">0</div></div>
-          <div class="chip" style="border-color:#6b2c2c"><div class="k" style="color:#e5a1a1">Debt</div><div class="v" id="hud-debt" style="color:#ff6b6b">₦0</div></div>
-        </div>
-      </div>
-      <div id="pharm-objective">📦 WALK TO THE DOCK</div>
-      <div id="pharm-toasts"></div>
-      <div class="hint"><span id="hud-hint">WASD / drag to move — hold still on a zone to act</span></div>
-      <button id="pharm-invest-btn">INVEST<span class="badge" id="hud-invest-hint">licences · staff · upgrades</span></button>
-      <div id="pharm-drawer">
-        <header><h3>Store Investment</h3><button class="buy ghost" id="pharm-drawer-close" style="min-height:32px">✕</button></header>
-        <div class="body" id="pharm-drawer-body"></div>
-      </div>
-      <div id="pharm-debug"></div>
-    `;
+    hud.innerHTML = nairaToSvgMarkup(hudShellHtml());
     this.root.appendChild(hud);
 
     this.bar = hud;
@@ -207,11 +303,11 @@ export class ArcadeStoreHud {
     ].join('|');
     if (key !== this.lastKey) {
       this.lastKey = key;
-      this.cashEl.textContent = compact(this.run.cash);
-      this.cashEl.title = money(this.run.cash);
+      this.cashEl.innerHTML = nairaToSvgMarkup(compact(this.run.cash));
+      this.cashEl.title = nairaPlainText(money(this.run.cash));
       this.dayEl.textContent = `${Math.min(this.run.day, 90)} / 90`;
-      this.debtEl.textContent = compact(this.run.debt);
-      this.debtEl.title = money(this.run.debt);
+      this.debtEl.innerHTML = nairaToSvgMarkup(compact(this.run.debt));
+      this.debtEl.title = nairaPlainText(money(this.run.debt));
       this.trustEl.textContent = String(Math.round(this.run.trust));
       this.stackEl.textContent = `${ctx.stackCount} / ${ctx.stackCapacity}`;
       const staffCount = (Object.keys(EMPLOYEES) as EmployeeRole[]).reduce(
@@ -226,9 +322,12 @@ export class ArcadeStoreHud {
     if (objective !== this.lastObjective) {
       this.lastObjective = objective;
       const tutorial = !this.onboarding.isComplete;
-      this.objectiveEl.innerHTML = tutorial
-        ? `<span>${objective}</span> <button id="pharm-skip-tutorial" style="pointer-events:auto;margin-left:10px;background:#1e2f27;border:1px solid #2f4a3b;color:#cfe0d7;border-radius:9px;font-size:0.62rem;font-weight:800;padding:4px 8px;cursor:pointer;">LET ME PLAY</button>`
-        : `<span>${objective}</span>`;
+      setNairaHtml(
+        this.objectiveEl,
+        tutorial
+          ? `<span>${objective}</span> <button id="pharm-skip-tutorial" style="pointer-events:auto;margin-left:10px;background:#1e2f27;border:1px solid #2f4a3b;color:#cfe0d7;border-radius:9px;font-size:0.62rem;font-weight:800;padding:4px 8px;cursor:pointer;">LET ME PLAY</button>`
+          : `<span>${objective}</span>`
+      );
       this.objectiveEl.querySelector('#pharm-skip-tutorial')?.addEventListener('click', () => {
         this.onboarding.skip();
         this.cb.onSkipTutorial?.();
@@ -262,13 +361,13 @@ export class ArcadeStoreHud {
     const next = this.run.nextLicenseTier();
     // Phones get the price only: the full "buy: <name>" string does not fit a
     // 320px row next to the INVEST label and ends up ellipsised mid-word.
-    const compact = typeof window !== 'undefined' && window.innerWidth <= 560;
+    const narrow = typeof window !== 'undefined' && window.innerWidth <= 560;
     if (next && this.run.cash >= next.cost) {
-      hint.textContent = compact ? `₦${(next.cost / 1000).toFixed(0)}k licence` : `buy: ${next.name}`;
+      setNairaText(hint, narrow ? `₦${(next.cost / 1000).toFixed(0)}k licence` : `buy: ${next.name}`);
     } else if (this.run.cash >= this.run.upgradeCost('carry')) {
-      hint.textContent = compact ? 'upgrade ready' : 'upgrades ready';
+      hint.textContent = narrow ? 'upgrade ready' : 'upgrades ready';
     } else {
-      hint.textContent = compact ? 'licences · staff' : 'licences · staff · upgrades';
+      hint.textContent = narrow ? 'licences · staff' : 'licences · staff · upgrades';
     }
   }
 
@@ -281,88 +380,7 @@ export class ArcadeStoreHud {
   }
 
   private renderDrawer(): void {
-    const r = this.run;
-    const nextTier = r.nextLicenseTier();
-    const nextExpansion = r.nextExpansion();
-    const upgradeRows = (Object.keys(UPGRADES) as UpgradeId[])
-      .map((id) => {
-        const spec = UPGRADES[id];
-        const level = r.state.upgrades[id];
-        const cost = r.upgradeCost(id);
-        const maxed = !Number.isFinite(cost);
-        return `<div class="item">
-          <div><div class="t">${spec.name} <span class="s">Lv ${level}/${spec.maxLevel}</span></div><div class="s">${spec.description}</div></div>
-          <button class="buy" data-buy="upgrade:${id}" ${maxed || r.cash < cost ? 'disabled' : ''}>${maxed ? 'MAX' : money(cost)}</button>
-        </div>`;
-      })
-      .join('');
-
-    const staffRows = (Object.keys(EMPLOYEES) as EmployeeRole[])
-      .map((role) => {
-        const spec = EMPLOYEES[role];
-        const state = r.state.employees[role];
-        const maxed = state.count >= spec.maxCount;
-        return `<div class="item">
-          <div><div class="t">${spec.name} <span class="s">${state.count}/${spec.maxCount}</span></div>
-          <div class="s">${money(spec.dailyWage)}/day · morale ${Math.round(state.morale)}%</div></div>
-          <button class="buy" data-buy="staff:${role}" ${maxed || r.cash < spec.hireCost ? 'disabled' : ''}>${maxed ? 'MAX' : `HIRE ${money(spec.hireCost)}`}</button>
-        </div>`;
-      })
-      .join('');
-
-    const ownedLicences = LICENSE_TIERS.filter((t) => r.state.licenses.includes(t.tier))
-      .map((t) => `<span style="font-size:0.68rem;color:#8fd6ff">${t.name}</span>`)
-      .join(' · ');
-
-    this.drawerBody.innerHTML = `
-      <div class="card">
-        <h4>Licence desk</h4>
-        ${
-          nextTier
-            ? `<div class="item"><div><div class="t">${nextTier.name}</div><div class="s">${nextTier.description}</div></div>
-               <button class="buy" data-buy="license" ${r.cash < nextTier.cost ? 'disabled' : ''}>${money(nextTier.cost)}</button></div>`
-            : `<div class="s">Every licence is open. The whole street is yours.</div>`
-        }
-        <div class="s" style="margin-top:6px">Owned: ${ownedLicences || 'none'}</div>
-      </div>
-
-      <div class="card">
-        <h4>Upgrades</h4>
-        ${upgradeRows}
-      </div>
-
-      <div class="card">
-        <h4>Staff — ${money(r.dailyWages())}/day wages</h4>
-        ${staffRows}
-      </div>
-
-      <div class="card">
-        <h4>Floor space</h4>
-        ${
-          nextExpansion
-            ? `<div class="item"><div><div class="t">${nextExpansion.name}</div><div class="s">${nextExpansion.description}</div></div>
-               <button class="buy" data-buy="expansion" ${r.cash < nextExpansion.cost ? 'disabled' : ''}>${money(nextExpansion.cost)}</button></div>`
-            : `<div class="s">Fully expanded: 90-day flagship store.</div>`
-        }
-      </div>
-
-      <div class="card">
-        <h4>Chief Okonkwo — ${money(r.debt)} outstanding</h4>
-        <div class="s" style="margin-bottom:6px">Share of daily profit sent to the debt: <b id="debt-share-label">${Math.round(r.debtServiceShare * 100)}%</b></div>
-        <input type="range" id="debt-share" min="0" max="100" step="10" value="${Math.round(r.debtServiceShare * 100)}" />
-        <div class="item" style="margin-top:6px">
-          <div class="s">Cash on hand ${money(r.cash)}</div>
-          <button class="buy" data-buy="debt" ${r.cash <= 0 || r.debt <= 0 ? 'disabled' : ''}>PAY ${money(Math.min(r.cash, r.debt))}</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h4>System</h4>
-        <div class="item"><div class="s">Autosaves every day and on every purchase.</div><button class="buy ghost" id="hud-save">SAVE</button></div>
-        <div class="item"><div class="s">Local funnel export (no PII leaves this device).</div><button class="buy ghost" id="hud-export">EXPORT</button></div>
-        <div class="item"><div class="s">Wipe the save and start a new 90-day season.</div><button class="buy ghost" id="hud-new">NEW RUN</button></div>
-      </div>
-    `;
+    setNairaHtml(this.drawerBody, drawerHtml(this.run));
 
     this.drawerBody.querySelectorAll('[data-buy]').forEach((el) => {
       el.addEventListener('click', () => this.handleBuy((el as HTMLElement).dataset.buy!));
@@ -444,7 +462,7 @@ export class ArcadeStoreHud {
   // ------------------------------------------------------------------ modals
 
   private openModal(html: string): void {
-    this.modalHost.innerHTML = `<div class="modal">${html}</div>`;
+    setNairaHtml(this.modalHost, `<div class="modal">${html}</div>`);
     this.modalHost.classList.add('open');
   }
 
@@ -564,7 +582,7 @@ export class ArcadeStoreHud {
   public toast(text: string, color = '#00E676'): void {
     const el = document.createElement('div');
     el.className = 'toast';
-    el.textContent = text;
+    setNairaText(el, text);
     el.style.borderLeftColor = color;
     this.toastWrap.appendChild(el);
     setTimeout(() => el.remove(), 3200);
@@ -597,7 +615,7 @@ export class ArcadeStoreHud {
       ...this.telemetry.debugLines(),
       `drop-off ${report.dropOff}  median day ${report.medianDayReached}`,
     ];
-    this.debugEl.textContent = lines.join('\n');
+    setNairaText(this.debugEl, lines.join('\n'));
   }
 
   public pulseObjective(): void {
