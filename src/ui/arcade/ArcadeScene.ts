@@ -237,10 +237,8 @@ export class ArcadeScene {
     // The cross is parented to the scene, not the shell, so it has to be walked
     // back to whichever wall is now the back wall. Left alone it floats mid-room
     // after the first expansion.
-    for (const name of ['pharm-cross-v', 'pharm-cross-h']) {
-      const cross = this.group.getObjectByName(name) as THREE.Mesh | undefined;
-      if (cross) cross.position.z = this.room.minZ + 0.07;
-    }
+    const cross = this.group.getObjectByName('pharm-cross') as THREE.Mesh | undefined;
+    if (cross) cross.position.z = this.room.minZ + 0.07;
 
     // Dressing is authored against the starting shop; when a wall moves, the props
     // on it move too, or they end up hanging over the new aisle.
@@ -386,11 +384,19 @@ export class ArcadeScene {
     this.group.add(slab);
 
     const guardWidth = (COUNTER.width - 1.2) / 2;
-    for (const side of [-1, 1]) {
-      const guard = new THREE.Mesh(chamferBox(guardWidth, 0.75, 0.06, 0.015), material('glass'));
-      guard.name = `pharm-guard-${side < 0 ? 'l' : 'r'}`;
-      guard.position.set(COUNTER.x + side * (0.6 + guardWidth / 2), 1.645, COUNTER.z);
-      this.group.add(guard);
+    // Both sneeze guards share one glass material, so merge them: two transparent
+    // draws for two panes was 1 draw call of pure waste on the phone budget.
+    const guardGeos = [-1, 1].map((side) => {
+      const geo = chamferBox(guardWidth, 0.75, 0.06, 0.015);
+      geo.translate(COUNTER.x + side * (0.6 + guardWidth / 2), 1.645, COUNTER.z);
+      return geo;
+    });
+    const guardsMerged = mergeGeometries(guardGeos, false);
+    for (const geo of guardGeos) geo.dispose();
+    if (guardsMerged) {
+      const guards = new THREE.Mesh(guardsMerged, material('glass'));
+      guards.name = 'pharm-guards';
+      this.group.add(guards);
     }
 
     // Till, not a black cube. Three parts is enough to read at 60 px: a compact
@@ -424,16 +430,18 @@ export class ArcadeScene {
       this.pushShadow(1.15 * 0.85 * 2, 0.8 * 0.85 * 2, COUNTER.x + offset, COUNTER.z, 0.3, 0.006);
     }
 
-    // Pharmacy cross on the back wall, above the dispensary.
+    // Pharmacy cross on the back wall, above the dispensary. One merged mesh, so it
+    // is one draw call and the expansion rebuild only has to move one object.
     const crossMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.4, emissive: 0x0d2f10, emissiveIntensity: 0.4 });
-    const crossV = new THREE.Mesh(chamferBox(0.42, 1.3, 0.1, 0.02), crossMat);
-    crossV.name = 'pharm-cross-v';
-    crossV.position.set(0, 2.25, ROOM.minZ + 0.07);
-    this.group.add(crossV);
-    const crossH = new THREE.Mesh(chamferBox(1.3, 0.42, 0.1, 0.02), crossMat);
-    crossH.name = 'pharm-cross-h';
-    crossH.position.set(0, 2.25, ROOM.minZ + 0.07);
-    this.group.add(crossH);
+    const crossGeos = [chamferBox(0.42, 1.3, 0.1, 0.02), chamferBox(1.3, 0.42, 0.1, 0.02)];
+    const crossMerged = mergeGeometries(crossGeos, false);
+    for (const geo of crossGeos) geo.dispose();
+    if (crossMerged) {
+      const cross = new THREE.Mesh(crossMerged, crossMat);
+      cross.name = 'pharm-cross';
+      cross.position.set(0, 2.25, ROOM.minZ + 0.07);
+      this.group.add(cross);
+    }
   }
 
   /** Queue a ground quad. Flushed into one mesh per opacity in flushShadows(). */

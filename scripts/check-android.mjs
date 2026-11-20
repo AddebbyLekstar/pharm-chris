@@ -183,7 +183,19 @@ for (const [id, x, z] of ZONES) {
   const res = await evaluate(`(async () => {
     const d = window.pharmChris.director;
     d.player.position.set(${x}, 0, ${z});
+    // Settle, don't guess: the emulator renders at ~5 fps, so a flat 450 ms is two
+    // frames and the follow camera is still in flight when we measure.
     await new Promise((r) => setTimeout(r, 450));
+    {
+      const cam0 = window.pharmChris.director.viewport.camera;
+      let prev = cam0.position.clone();
+      const until = performance.now() + 4000;
+      while (performance.now() < until) {
+        await new Promise((r) => setTimeout(r, 120));
+        if (cam0.position.distanceToSquared(prev) < 1e-6) break;
+        prev = cam0.position.clone();
+      }
+    }
     const cam = d.viewport.camera;
     cam.updateMatrixWorld(true);
     const v = d.player.position.clone().set(${x}, 0, ${z}).project(cam);
