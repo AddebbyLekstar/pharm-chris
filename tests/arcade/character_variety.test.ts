@@ -71,6 +71,25 @@ describe('character rig', () => {
     }
   });
 
+  it('gives the hoodie a hood, so it is not a tee with a pocket', () => {
+    const base = customerLook(data('cust_hood'));
+    const tee = size(buildCharacterRig({ ...base, outfit: 'tee' }).root);
+    const hoodieRig = buildCharacterRig({ ...base, outfit: 'hoodie' });
+    const hoodie = size(hoodieRig.root);
+    expect(names(hoodieRig).has('hood')).toBe(true);
+    // The hood projects behind the shoulders; the tee has nothing there.
+    expect(hoodie.z).toBeGreaterThan(tee.z + 0.1);
+  });
+
+  it('puts the stocker crate in their hands, not on their chest', () => {
+    const rig = buildCharacterRig(staffLook('stocker'), { role: 'stocker' });
+    const crate = rig.parts.includes('crate');
+    expect(crate).toBe(true);
+    // Arms rotate forward to hold it.
+    expect(Math.abs(rig.leftArm.rotation.x)).toBeGreaterThan(1);
+    expect(Math.abs(rig.rightArm.rotation.x)).toBeGreaterThan(1);
+  });
+
   it('changes what is on the head, not just the colour', () => {
     const wrap = names(buildCharacterRig({ ...customerLook(data('n1')), hair: 'headwrap', headpiece: null }));
     const braids = names(buildCharacterRig({ ...customerLook(data('n2')), hair: 'braids', headpiece: null }));

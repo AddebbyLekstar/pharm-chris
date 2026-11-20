@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pharm Chris — Rig Reference Sheet</title>
+    <style>
+      :root {
+        --ink: #1b1a17;
+        --muted: #6a655c;
+        --paper: #f4f1ea;
+        --rule: #d5cfc2;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; background: var(--paper); color: var(--ink); }
+      body {
+        font-family: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+        padding: 28px 32px 40px;
+      }
+      header { max-width: 3600px; margin: 0 auto 18px; }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 20px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .sub { margin: 0; font-size: 12px; line-height: 1.55; color: var(--muted); max-width: 1100px; }
+      .sub b { color: var(--ink); font-weight: 600; }
+      .groups { display: flex; gap: 26px; margin-top: 12px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+      .groups span { display: inline-flex; align-items: center; gap: 6px; }
+      .groups i { width: 9px; height: 9px; display: inline-block; border: 1px solid rgba(0,0,0,.35); }
+
+      #stage { max-width: 3600px; margin: 0 auto; }
+      #canvas-host {
+        position: relative;
+        width: 100%;
+        background: #f4f1ea;
+        border: 1px solid var(--rule);
+        overflow: hidden;
+      }
+      #sheet { display: block; width: 100%; height: 100%; }
+
+      #labels { position: relative; width: 100%; height: 74px; margin-top: 0; border-bottom: 1px solid var(--rule); }
+      #labels .cell {
+        position: absolute;
+        top: 8px;
+        transform: translateX(-50%);
+        text-align: center;
+        font-size: 10px;
+        line-height: 1.32;
+        color: var(--ink);
+      }
+      #labels .cell .idx { display: block; font-size: 9px; color: #9a948a; letter-spacing: .08em; }
+      #labels .cell .name { display: block; font-size: 11px; font-weight: 700; white-space: nowrap; }
+      #labels .cell .meta { display: block; font-size: 9.5px; color: var(--muted); white-space: nowrap; }
+
+      #groupbar { display: flex; width: 100%; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+      #groupbar div {
+        border-top: 1px solid var(--rule);
+        border-bottom: 2px solid var(--rule);
+        padding: 5px 0;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+
+      #status {
+        max-width: 3600px;
+        margin: 12px auto 0;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      #status.error { color: #8a1c1c; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Rig reference sheet — controlled silhouette pass</h1>
+      <p class="sub">
+        Every figure is built by <b>buildCharacterRig</b> from its real <b>CharacterLook</b> and
+        merged with <b>mergeRigVertexColors</b>, exactly as the game ships it. Orthographic camera,
+        no perspective, no follow-cam, no crowd overlap: shape is the only variable.
+      </p>
+      <div class="groups">
+        <span><i style="background:#6f8f6a"></i>outfits — one neutral body, only the garment changes</span>
+        <span><i style="background:#8a7a9c"></i>hair — tee + neutral body, only the head changes</span>
+        <span><i style="background:#c08a4a"></i>authored story cast — their real derived looks</span>
+        <span><i style="background:#4a7f96"></i>staff roles — uniform + role prop</span>
+      </div>
+    </header>
+
+    <div id="stage">
+      <div id="canvas-host"><canvas id="sheet"></canvas></div>
+      <div id="labels"></div>
+      <div id="groupbar"></div>
+    </div>
+    <p id="status">building rigs…</p>
+
+    <script type="module" src="/scripts/rig-sheet.ts"></script>
+  </body>
+</html>

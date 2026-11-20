@@ -17,3 +17,6 @@ layout*.json
 art-ab/
 art-ab3/
 gate-*.json
+
+# Pulled four-box evidence and rig-sheet captures live outside the bundle
+instabox-proof/

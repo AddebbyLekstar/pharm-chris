@@ -130,7 +130,7 @@ export function buildCharacterRig(look: CharacterLook, options: RigOptions = {})
   // ---- Legs --------------------------------------------------------------
   const { leftLeg, rightLeg } = buildLegs(look, root, parts, { bottom, shoes, skin });
 
-  if (options.role) buildRoleProp(options.role, { body, head, parts, accent, top });
+  if (options.role) buildRoleProp(options.role, { body, head, parts, accent, top, leftArm, rightArm });
 
   return { root, body, head, leftArm, rightArm, leftLeg, rightLeg, parts };
 }
@@ -166,6 +166,11 @@ function buildTorso(look: CharacterLook, body: THREE.Group, parts: string[], m: 
     }
     case 'hoodie': {
       part(body, 'torso', box(0.72, 0.90, 0.46), m.top, [0, 1.06, 0], parts);
+      // Without the hood this was the tee with a pocket on it: the reference sheet
+      // measured both at 1.090 x 2.040 m, i.e. the same person in a different colour.
+      part(body, 'hood', box(0.42, 0.30, 0.26), m.top, [0, 1.47, -0.28], parts, [0.35, 0, 0]);
+      part(body, 'hood-cord', box(0.03, 0.22, 0.03), m.accent, [-0.08, 1.28, 0.25], parts);
+      part(body, 'hood-cord-copy', box(0.03, 0.22, 0.03), m.accent, [0.08, 1.28, 0.25], parts);
       part(body, 'hood-pocket', box(0.34, 0.18, 0.06), m.top, [0, 0.94, 0.25], parts);
       part(body, 'pelvis', box(0.60, 0.22, 0.38), m.bottom, [0, 0.76, 0], parts);
       break;
@@ -325,10 +330,22 @@ function buildLegs(
 
 function buildRoleProp(
   role: StaffRole,
-  ctx: { body: THREE.Group; head: THREE.Group; parts: string[]; accent: THREE.Material; top: THREE.Material }
+  ctx: {
+    body: THREE.Group;
+    head: THREE.Group;
+    parts: string[];
+    accent: THREE.Material;
+    top: THREE.Material;
+    leftArm: THREE.Group;
+    rightArm: THREE.Group;
+  }
 ): void {
   if (role === 'stocker') {
-    part(ctx.body, 'crate', box(0.34, 0.26, 0.26), mat(0xb98a4b, 0.8), [0, 1.02, 0.26], ctx.parts);
+    // Arms forward so the crate is held, not stapled to the chest. The reference
+    // sheet read the old z = 0.26 crate as a patch on the apron.
+    ctx.leftArm.rotation.x = -1.15;
+    ctx.rightArm.rotation.x = -1.15;
+    part(ctx.body, 'crate', box(0.40, 0.28, 0.30), mat(0xb98a4b, 0.8), [0, 0.98, 0.44], ctx.parts);
   } else if (role === 'cashier') {
     part(ctx.head, 'staff-cap', box(0.34, 0.10, 0.34), ctx.accent, [0, 0.50, 0], ctx.parts);
   } else {
