@@ -5,6 +5,7 @@ import { textures } from './textures';
 import { WALKABLE, ROOM, SHOP_W, SHOP_D, COUNTER, SHELF_BAYS, boundsFor, type Rect } from './layout';
 import { buildRoomShell } from './kit/roomShell';
 import { buildDressing, placementsFor } from './kit/props';
+import { buildDockMarkings } from './kit/dockMarkings';
 import { buildExpansion } from './kit/expansion';
 import { chamferBox } from './kit/geometry';
 import { material } from './kit/materials';
@@ -442,6 +443,10 @@ export class ArcadeScene {
       cross.position.set(0, 2.25, ROOM.minZ + 0.07);
       this.group.add(cross);
     }
+
+    // Painted dock signage. Parented to the room group, not the shell: the dock
+    // trigger never moves when a wall is bought, so the paint must not either.
+    this.group.add(buildDockMarkings());
   }
 
   /** Queue a ground quad. Flushed into one mesh per opacity in flushShadows(). */

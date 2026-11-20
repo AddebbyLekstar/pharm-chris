@@ -364,6 +364,51 @@ export function signage(text: string, background: string, ink = '#ffffff'): THRE
   return finish(canvas, 1, 1);
 }
 
+/**
+ * Dock stencil: one word of sprayed floor paint on a transparent sheet.
+ *
+ * Kept at 512 x 146 rather than a square atlas: it is an alpha mask for a single
+ * 1.9 x 0.54 m line of type, so a square 512 would spend three quarters of the
+ * upload on empty pixels. With mips this is ~0.4 MB, against the 16.75 MB boot
+ * budget.
+ */
+export function dockStencil(): THREE.CanvasTexture {
+  const w = 512;
+  const h = 146;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D canvas context unavailable; dock stencil cannot be built');
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Arial Black, not a decorative stencil face: at 13 px per letter the only
+  // thing that survives minification is stroke weight. The spray nicks below
+  // keep it reading as painted rather than typeset.
+  ctx.font = '900 130px "Arial Black", "Segoe UI", sans-serif';
+  ctx.fillText('CRATE', w / 2, h * 0.53, 492);
+
+  // Spray wear: a handful of nicks through the glyphs, so the word reads as
+  // paint on a floor rather than a clean UI label. Seeded, so two boots match.
+  const rand = mulberry32(0x0d0c4a);
+  ctx.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 46; i++) {
+    const x = 18 + rand() * (w - 36);
+    const y = 18 + rand() * (h - 36);
+    ctx.globalAlpha = 0.35 + rand() * 0.5;
+    ctx.fillRect(x, y, 1 + rand() * 3, 1 + rand() * 2.5);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  const texture = finish(canvas, 1, 1);
+  texture.premultiplyAlpha = false;
+  return texture;
+}
+
 /** Soft radial ring for interaction zones — replaces a hard saturated hoop. */
 export function zoneRing(): THREE.CanvasTexture {
   const { canvas, ctx } = sheet(256);
@@ -451,6 +496,7 @@ function buildCache() {
     steelTeal: brushedSteel('#1b4d3e'),
     steelGreen: brushedSteel('#24483c'),
     cardboard: cardboard(),
+    dockStencil: dockStencil(),
     zoneRing: zoneRing(),
     backdrop: backdrop(),
     groundFade: groundFade(),

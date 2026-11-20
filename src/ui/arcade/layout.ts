@@ -37,6 +37,36 @@ export const WALKABLE: Rect = { minX: -3.6, maxX: 3.6, minZ: -3.9, maxZ: 3.9 };
 /** Crate pad at the back of the shop, where stock is collected. */
 export const DOCK = { x: 0, z: -3.4, radius: 1.1, width: 1.6, depth: 1.2 };
 
+/**
+ * Painted dock floor markings.
+ *
+ * The trigger ring says "something happens here"; it does not say what to do or
+ * which way to walk. These painted extents add that instruction: a dashed
+ * approach lane with chevrons pointing north into the dock, and a drop-pad
+ * outline straddling the trigger. Every extent is inside WALKABLE by
+ * construction and the pad contains the trigger centre, so the paint can never
+ * point at empty floor. tests/arcade/dock_signage.test.ts enforces both.
+ */
+export const DOCK_PAD: Rect = { minX: -1.06, maxX: 1.06, minZ: -3.72, maxZ: -2.38 };
+
+export const DOCK_MARKINGS = {
+  laneStartZ: -1.2,
+  laneEndZ: -2.4,
+  laneHalfWidth: 0.7,
+  laneLineWidth: 0.085,
+  laneDash: 0.28,
+  laneGap: 0.17,
+  chevronHalfWidth: 0.5,
+  chevronDepth: 0.28,
+  chevronStroke: 0.13,
+  chevronZs: [-1.5, -1.9, -2.3],
+  pad: DOCK_PAD,
+  outline: 0.09,
+  cornerTick: 0.36,
+  cornerTickWidth: 0.13,
+  stencil: { width: 1.9, height: 0.54, z: -3.05 },
+} as const;
+
 /** Dispensing counter, centred, in front of the shelves. */
 export const COUNTER = { x: 0, z: 1.6, width: 3.2, depth: 0.95, radius: 1.2 };
 
