@@ -34,11 +34,12 @@ export class ArcadePlayer {
     this.baseSpeed = options?.baseSpeed ?? 6.0;
 
     this.mesh = new THREE.Group();
-    // Spawn mid-room, not by the entrance: the camera is zoomed to keep Chris at
-    // 80 px, so a shop-centre spawn frames both the delivery dock (the first
-    // objective) and the counter. Spawning on the register pad would fire the
-    // counter trigger on load; spawning at z = 4.2 was outside the walkable floor.
-    this.mesh.position.set(0, 0, -1.0);
+    // Spawn beside the delivery dock, not by the entrance. The camera keeps Chris at
+    // 80 px, so the frame is only ~5.4 m deep: a shop-centre spawn left the dock —
+    // the first objective — off screen. z = -2.0 is 1.4 m from the dock centre, just
+    // outside its 1.1 m trigger, and inside the walkable floor (the old z = 4.2 was
+    // not).
+    this.mesh.position.set(0, 0, -2.0);
 
     this.buildStylizedModel();
     mergeRig(this.mesh);
