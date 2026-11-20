@@ -285,8 +285,6 @@ export class ArcadeScene {
     curb.position.set(centerX, 0.02, this.room.maxZ + 0.6);
     this.group.add(curb);
     this.curb = curb;
-
-    if (this.scene.background instanceof THREE.Texture) return; // surface pass owns the backdrop
   }
 
   /**
@@ -519,6 +517,11 @@ export class ArcadeScene {
     }
     this.expansionGroup = buildExpansion(clamped);
     this.group.add(this.expansionGroup);
+
+    // New geometry arrives after the boot bake, so it has no contact gradient and
+    // reads flatter than the room it stands in. The bake skips meshes that already
+    // carry a colour attribute, so re-running only touches what was just built.
+    if (artVersion() !== 'v1') bakeContactAO(this.group, 0, 0.9);
   }
 
   public getWalkableBounds(): WalkableBounds {

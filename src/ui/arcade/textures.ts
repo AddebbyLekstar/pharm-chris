@@ -245,7 +245,9 @@ export function medicineAtlas(): THREE.CanvasTexture {
   // One canvas for the whole shop; each bay clones the texture and samples a
   // quadrant, which shares the GPU upload.
   if (atlasCache) return atlasCache;
-  const size = 1024;
+  // 512, so each carton face is 256 px: enough for a legible drug name at arm's
+  // length, and 4x cheaper than 1024 on a 2 GB phone.
+  const size = 512;
   const cell = size / 2;
   const { canvas, ctx } = sheet(size);
   const rand = mulberry32(0x2b17c9);
@@ -277,12 +279,12 @@ export function medicineAtlas(): THREE.CanvasTexture {
     ctx.fillStyle = design.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `700 ${Math.round(cell * 0.115)}px "Segoe UI", system-ui, sans-serif`;
+    ctx.font = `700 ${Math.round(cell * 0.13)}px "Segoe UI", system-ui, sans-serif`;
     ctx.fillText(design.name, ox + cell / 2, oy + cell * 0.17, cell * 0.92);
 
     // Strength, then the small print a real carton carries.
     ctx.fillStyle = '#2a2320';
-    ctx.font = `600 ${Math.round(cell * 0.085)}px "Segoe UI", system-ui, sans-serif`;
+    ctx.font = `600 ${Math.round(cell * 0.1)}px "Segoe UI", system-ui, sans-serif`;
     ctx.fillText(design.dose, ox + cell / 2, oy + cell * 0.46, cell * 0.8);
 
     ctx.fillStyle = '#6f675c';

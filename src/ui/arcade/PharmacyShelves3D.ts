@@ -64,6 +64,18 @@ export class PharmacyShelves3D {
     });
     for (const conf of this.shelfConfigs) this.stockLevels.set(conf.category, 5);
 
+    // Every bay's frame goes into one root and is merged across bays: four separate
+    // merges cost ~12 draw calls (and again in the shadow pass), one merge costs 3.
+    const framesRoot = new THREE.Group();
+    framesRoot.name = 'shelf-frames';
+    // Shared so the four cold-chain glow panels merge with each other.
+    const fridgeGlowMat = new THREE.MeshStandardMaterial({
+      color: 0x9fe8ef,
+      emissive: 0x2e8b8b,
+      emissiveIntensity: 0.9,
+      roughness: 0.6,
+    });
+
     for (const conf of this.shelfConfigs) {
       const shelfBay = new THREE.Group();
       shelfBay.position.copy(conf.position);
@@ -73,7 +85,6 @@ export class PharmacyShelves3D {
       // Open frame, not a solid block. A closed 1.6 x 2.6 x 0.85 box reads as a
       // painted slab from any angle; five 7 cm panels and four tiers read as a
       // shelf you could take a box off.
-      const frame = new THREE.Group();
       const W = 1.6;
       const H = 2.6;
       const D = 0.85;
@@ -82,10 +93,11 @@ export class PharmacyShelves3D {
       const shelfMat: THREE.Material = isFridge ? material('glass') : woodShelfMat;
       const part = (w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material): void => {
         const m = new THREE.Mesh(chamferBox(w, h, d, 0.02), mat);
-        m.position.set(x, y, z);
+        // World position, not bay-local: the frame is merged with the other three.
+        m.position.set(conf.position.x + x, y, conf.position.z + z);
         m.castShadow = true;
         m.receiveShadow = true;
-        frame.add(m);
+        framesRoot.add(m);
       };
       part(T, H, D, -(W / 2 - T / 2), H / 2, 0, panelMat);
       part(T, H, D, W / 2 - T / 2, H / 2, 0, panelMat);
@@ -101,19 +113,14 @@ export class PharmacyShelves3D {
       // practical budget the whole phase is measured against.
       if (isFridge) {
         const door = new THREE.Mesh(chamferBox(W - T * 2, H - 0.35, 0.03, 0.01), material('glass'));
-        door.position.set(0, H / 2, facing * (D / 2 - 0.02));
-        frame.add(door);
-        const glow = new THREE.Mesh(
-          new THREE.PlaneGeometry(W - T * 3, H - 0.5),
-          new THREE.MeshStandardMaterial({ color: 0x9fe8ef, emissive: 0x2e8b8b, emissiveIntensity: 0.9, roughness: 0.6 })
-        );
-        glow.position.set(0, H / 2, -facing * (D / 2 - T - 0.005));
+        door.position.set(conf.position.x, H / 2, conf.position.z + facing * (D / 2 - 0.02));
+        framesRoot.add(door);
+        const glow = new THREE.Mesh(new THREE.PlaneGeometry(W - T * 3, H - 0.5), fridgeGlowMat);
+        glow.position.set(conf.position.x, H / 2, conf.position.z - facing * (D / 2 - T - 0.005));
         glow.rotation.y = facing > 0 ? 0 : Math.PI;
-        frame.add(glow);
+        framesRoot.add(glow);
       }
 
-      mergeRig(frame);
-      shelfBay.add(frame);
 
       // Category header: a plate with the bay's colour and, when the surface pass is
       // on, real words. The eye finds labels before geometry.
@@ -151,25 +158,26 @@ export class PharmacyShelves3D {
       const ROWS = 2;
       const total = COLS * TIERS * ROWS;
       const boxGeo = chamferBox(0.33, 0.2, 0.26, 0.015);
-      // Each bay samples its own quadrant of the label atlas: four carton designs
-      // across the shop, still one draw call per bay. Without the map the packs are
-      // coloured blocks, which is exactly what made a full shelf read as placeholder.
+      // Each bay samples its own quadrant of ONE label atlas. The quadrant is baked
+      // into this bay's UVs, not into a cloned texture: four texture clones meant
+      // four GPU uploads of the same 1 MB image (5.3 MB each at 1024 with mips),
+      // which alone put the phone 16 MB over its texture budget.
       const atlas = surf ? medicineAtlas() : null;
-      const bayIndex = this.shelfConfigs.findIndex((c) => c.category === conf.category);
-      let boxMap: THREE.Texture | null = null;
+      const bayIndex = Math.max(0, this.shelfConfigs.findIndex((c) => c.category === conf.category));
       if (atlas) {
-        boxMap = atlas.clone();
-        boxMap.needsUpdate = true;
-        boxMap.wrapS = THREE.ClampToEdgeWrapping;
-        boxMap.wrapT = THREE.ClampToEdgeWrapping;
-        boxMap.repeat.set(0.5, 0.5);
-        boxMap.offset.set(bayIndex % 2 === 0 ? 0 : 0.5, bayIndex < 2 ? 0.5 : 0);
+        const uv = boxGeo.getAttribute('uv') as THREE.BufferAttribute;
+        const ou = (bayIndex % 2) * 0.5;
+        const ov = bayIndex < 2 ? 0.5 : 0;
+        for (let i = 0; i < uv.count; i++) {
+          uv.setXY(i, uv.getX(i) * 0.5 + ou, uv.getY(i) * 0.5 + ov);
+        }
+        uv.needsUpdate = true;
       }
       const boxMat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         roughness: 0.38,
         vertexColors: false,
-        map: boxMap,
+        map: atlas,
       });
       const instanced = new THREE.InstancedMesh(boxGeo, boxMat, total);
       const matrix = new THREE.Matrix4();
@@ -202,6 +210,9 @@ export class PharmacyShelves3D {
       this.displayBoxMeshes.set(conf.category, instanced);
       this.group.add(shelfBay);
     }
+
+    mergeRig(framesRoot);
+    this.group.add(framesRoot);
 
     this.updateVisuals();
   }
