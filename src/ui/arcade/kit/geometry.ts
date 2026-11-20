@@ -89,9 +89,34 @@ export function chamferBox(width: number, height: number, depth: number, chamfer
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  // Non-indexed on purpose: a chamfer wants a crisp facet per face, not a smoothed
-  // blob. computeVertexNormals on an unindexed buffer yields exactly that.
+  // Flat normals: a chamfer wants a crisp facet per face, not a smoothed blob.
   geometry.computeVertexNormals();
+
+  // UVs and an index, because primitives get merged: BufferGeometryUtils refuses
+  // geometries whose attribute sets differ, and BoxGeometry has both. Without this
+  // every mergeMeshes() call logged "failed with geometry at index 1" on the boot
+  // of each page (Instabox PC boxes, two errors per viewport).
+  const normals = geometry.getAttribute('normal');
+  const uv = new Float32Array((positions.length / 3) * 2);
+  for (let i = 0; i < positions.length / 3; i++) {
+    const nx = Math.abs(normals.getX(i));
+    const ny = Math.abs(normals.getY(i));
+    const nz = Math.abs(normals.getZ(i));
+    const px = positions[i * 3];
+    const py = positions[i * 3 + 1];
+    const pz = positions[i * 3 + 2];
+    // Planar projection on the dominant axis, normalised by the box extents.
+    const u = nx >= ny && nx >= nz ? pz / (hz * 2 || 1) + 0.5 : px / (hx * 2 || 1) + 0.5;
+    const v = ny >= nx && ny >= nz ? pz / (hz * 2 || 1) + 0.5 : py / (hy * 2 || 1) + 0.5;
+    uv[i * 2] = u;
+    uv[i * 2 + 1] = v;
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+
+  const index: number[] = [];
+  for (let i = 0; i < positions.length / 3; i++) index.push(i);
+  geometry.setIndex(index);
+
   geometry.computeBoundingBox();
   geometry.userData.tris = positions.length / 9;
   return geometry;

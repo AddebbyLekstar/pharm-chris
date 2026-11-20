@@ -128,6 +128,21 @@ export class TriggerZoneManager {
     return this.zones.get(id);
   }
 
+  /**
+   * Zone positions for external gates. The mobile gate used to hardcode the old
+   * 16 x 18 m coordinates, so it was teleporting the player into the walls and
+   * calling the result "reachable". Reading the live zones makes drift impossible.
+   */
+  public list(): Array<{ id: string; name: string; x: number; z: number; radius: number }> {
+    return [...this.zones.values()].map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      x: zone.position.x,
+      z: zone.position.z,
+      radius: zone.radius,
+    }));
+  }
+
   public update(delta: number, player: ArcadePlayer, stack: MedicineStack): void {
     // Update pulsing rings
     for (const zone of this.zones.values()) {

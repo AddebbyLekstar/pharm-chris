@@ -95,6 +95,10 @@ export class ArcadeGameDirector {
 
     // 4. Player & Movement
     this.player = new ArcadePlayer({ bounds: this.scene.getWalkableBounds() });
+    // Calibrate the camera to the character that actually exists, so the 80 px
+    // floor survives any change to his proportions or scale.
+    const extent = this.player.worldExtent();
+    this.viewport.setCharacterHeight(extent.maxY - extent.minY);
     this.scene.group.add(this.player.mesh);
 
     // 5. Medicine Carrying Stack

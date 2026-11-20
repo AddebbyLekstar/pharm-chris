@@ -31,15 +31,6 @@ const SIZES = [
   { w: 1920, h: 1080, mobile: false },
 ];
 
-const ZONES = [
-  ['dock', 0, -6.5],
-  ['shelf_antimalarial', -4.5, -4.5],
-  ['shelf_analgesic', -4.5, 0.5],
-  ['shelf_antibiotic', 4.5, -4.5],
-  ['shelf_cold_chain', 4.5, 0.5],
-  ['counter_cashier', 0, 0.2],
-];
-
 // P1 raised the floor from 38 px: below 46 px Chris cannot be steered by touch.
 const MIN_PLAYER_PX = 80;
 
@@ -117,14 +108,23 @@ for (const size of SIZES) {
     const p = window.pharmChris;
     const cam = p.director.viewport.camera;
     cam.updateMatrixWorld(true);
-    const v = p.director.player.position.clone();
-    const feet = v.clone().set(v.x, 0, v.z).project(cam);
-    const head = v.clone().set(v.x, 1.75, v.z).project(cam);
+    // Measure the character's actual projected bounding box, not a hardcoded
+    // 1.75 m segment. Chris is scaled 1.35x against the architecture, so the old
+    // constant under-reported him by a third and failed the 80 px floor while the
+    // shot was already at 80 px.
+    const ext = p.director.player.worldExtent();
+    const v = p.director.player.position;
+    const feet = v.clone().set(v.x, ext.minY, v.z).project(cam);
+    const head = v.clone().set(v.x, ext.maxY, v.z).project(cam);
     return Math.round(Math.abs(((head.y - feet.y) / 2) * window.innerHeight));
   });
 
   const reach = [];
-  for (const [id, x, z] of ZONES) {
+  // Positions come from the live zones, not a hardcoded table: the old list still
+  // carried the 16 x 18 m coordinates after the shop shrank, so the gate teleported
+  // the player through a wall and then judged that point "visible".
+  const zoneList = await page.evaluate(() => window.pharmChris.director.zoneManager.list());
+  for (const [id, x, z] of zoneList.map((zone) => [zone.id, zone.x, zone.z])) {
     const res = await page.evaluate(async ({ id, x, z }) => {
       const d = window.pharmChris.director;
       d.player.position.set(x, 0, z);

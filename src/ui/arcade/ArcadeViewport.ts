@@ -21,7 +21,7 @@ export const DEFAULT_PLAYABLE_BOUNDS: PlayableBounds = { ...WALKABLE };
 /** Height of the tallest fixture that must stay framed, in metres. */
 const FRAME_HEIGHT = 2.6;
 /** Eye-to-hair height of the player, used to keep the character controllable. */
-const CHARACTER_HEIGHT = 2.2;
+
 // Character size floor, in px. The design said 46, and at 46 Chris is a 47 px blob
 // on a 360 px phone: findable, not readable. The Sims Mobile puts its people at
 // ~10-14 % of screen height, and the user's brief is that Chris is a star, so the
@@ -60,6 +60,12 @@ export class ArcadeViewport {
   public contained = true;
   /** Share of viewport width the room occupied at the last solve (0-1). */
   public roomFill = 0;
+  /**
+   * The character's real height, in metres, as measured from his mesh. The solve
+   * used to assume a constant; when Chris was scaled 1.35x the assumption went
+   * stale and the gate measured 77 px against an 80 px floor.
+   */
+  public characterHeight = 2.2;
   /** Real floor extent; the camera may zoom in but must never show past these walls. */
   public roomBounds: PlayableBounds = { ...ROOM };
   public viewportHeight = 600;
@@ -135,6 +141,17 @@ export class ArcadeViewport {
    * and shelf fixtures stay visible; without it the camera frames the painted
    * floor and the room still looks cropped at the edges.
    */
+  /**
+   * Tell the camera how tall the character actually is, then re-solve. Called once
+   * the player mesh exists; keeps the px floor honest through any future rescale.
+   */
+  public setCharacterHeight(metres: number): void {
+    if (!(metres > 0.1)) return;
+    this.characterHeight = metres;
+    this.fitCameraToBounds();
+    this.camera.updateProjectionMatrix();
+  }
+
   public setRoomBounds(bounds: PlayableBounds): void {
     this.roomBounds = { ...bounds };
   }
@@ -283,7 +300,7 @@ export class ArcadeViewport {
   private projectedPlayerPixels(dist: number, x: number, z: number): number {
     this.placeProbe(dist);
     const feet = this.probePoint.set(x, 0, z).project(this.probeCamera).clone();
-    const head = this.probePoint.set(x, CHARACTER_HEIGHT, z).project(this.probeCamera).clone();
+    const head = this.probePoint.set(x, this.characterHeight, z).project(this.probeCamera).clone();
     return (Math.abs(head.y - feet.y) * this.viewportHeight) / 2;
   }
 
@@ -303,7 +320,7 @@ export class ArcadeViewport {
   private solvePlayerDistance(targetPx: number): number {
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;
     const horizontal = Math.hypot(this.isoDir.x, this.isoDir.z);
-    return (this.viewportHeight * CHARACTER_HEIGHT * horizontal) / (2 * targetPx * Math.tan(halfFov));
+    return (this.viewportHeight * this.characterHeight * horizontal) / (2 * targetPx * Math.tan(halfFov));
   }
 
   public updateCameraFollow(targetPos: THREE.Vector3, delta: number = 0.016): void {

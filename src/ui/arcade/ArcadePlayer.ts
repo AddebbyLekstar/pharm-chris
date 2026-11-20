@@ -69,6 +69,9 @@ export class ArcadePlayer {
     // uses. At true 1.62 m he rendered 47 px tall on a 360 px phone and read as a
     // pawn; the only alternatives were zooming until the shop left the frame.
     this.bodyGroup.scale.setScalar(1.35);
+    // The height the camera and the mobile gate both measure against. Kept next to
+    // the scale so the two can never drift apart again.
+    this.visualHeight = 1.63 * 1.35;
     this.mesh.add(this.bodyGroup);
 
     // Spec 1.2: Melanin Deep Rich skin
@@ -338,6 +341,24 @@ export class ArcadePlayer {
     // Dynamic Contact Shadow scale
     const shadowScale = Math.max(0.7, 1.0 - yBounce * 0.25);
     this.contactShadow.scale.set(shadowScale, shadowScale, 1);
+  }
+
+  /**
+   * World-space vertical extent of the character, in metres.
+   *
+   * The mobile gate needs Chris's real on-screen height; a hardcoded 1.75 m segment
+   * stopped matching the moment he was scaled 1.35x against the architecture, and
+   * the gate failed a shot that was already at the 80 px floor.
+   */
+  /** Body silhouette height in metres, after the architecture scale is applied. */
+  public visualHeight = 2.2;
+
+  public worldExtent(): { minY: number; maxY: number } {
+    // Declared, not measured. A bounding box picked up the hat, the stethoscope and
+    // the ground ring and reported 2.88 m, which pushed the camera back until Chris
+    // read at 61 px. Legibility is defined against the body silhouette we authored:
+    // 1.63 m of man scaled 1.35x against the architecture.
+    return { minY: 0, maxY: this.visualHeight };
   }
 
   public update(delta: number, inputDir?: THREE.Vector2): void {

@@ -181,12 +181,13 @@ export class ArcadeScene {
       plane.renderOrder = 1;
       this.group.add(plane);
     };
-    footprint(2.0, 1.2, -6.2, -4.5);
-    footprint(2.0, 1.2, -6.2, 0.5);
-    footprint(2.0, 1.2, 6.2, -4.5);
-    footprint(2.0, 1.2, 6.2, 0.5);
-    footprint(1.1, 1.0, 0, 1.5);
-
+    // Shelves used to be shadowed at |x| = 6.2 — the 16 x 18 m coordinates. Once the
+    // shop shrank to 8.4 m those planes landed outside the room and the bays lost
+    // their contact shadow entirely. Derived from the layout, so they cannot drift.
+    for (const bay of SHELF_BAYS) {
+      footprint(bay.width + 0.4, bay.depth + 0.3, bay.x, bay.z);
+    }
+    footprint(COUNTER.width + 0.3, COUNTER.depth + 0.3, COUNTER.x, COUNTER.z);
     // The room used to float on #101714. A staged gradient with a warm centre
     // glow gives the diorama a horizon instead of a void.
     this.scene.background = tex.backdrop;
