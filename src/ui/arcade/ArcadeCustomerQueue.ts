@@ -5,6 +5,9 @@ import { PharmChrisEngine } from '../../sim/engine';
 import { PharmacyShelves3D, normalizeCategory } from './PharmacyShelves3D';
 import { ArcadeCustomer } from './ArcadeCustomer';
 
+/** First four customers cast shadows; the tail of the queue does not. */
+const CROWD_SHADOW_LIMIT = 4;
+
 export interface CounterServiceResult {
   success: boolean;
   customer: Customer;
@@ -29,6 +32,7 @@ export class ArcadeCustomerQueue {
   public maxQueue: number;
   
   private customers: ArcadeCustomer[] = [];
+  private shadowLodCount = -1;
   private spawnTimer: number = 0;
   private spawnInterval: number = 6.0;
   public autoSpawn: boolean = true;
@@ -134,6 +138,27 @@ export class ArcadeCustomerQueue {
     };
   }
 
+  /**
+   * Crowd LOD for the shadow pass only.
+   *
+   * The spec's budget assumes ten characters, and past the fourth the player is not
+   * reading faces — he is reading a queue. Dropping castShadow on the tail of the
+   * queue removes one draw per material per customer from the shadow pass without
+   * touching the visible mesh, and every customer keeps its own contact shadow.
+   */
+  private refreshShadowLod(): void {
+    const active = this.customers.filter((c) => c.state !== 'leaving');
+    if (active.length === this.shadowLodCount) return;
+    this.shadowLodCount = active.length;
+    active.forEach((cust, idx) => {
+      const cast = idx < CROWD_SHADOW_LIMIT;
+      cust.mesh.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) mesh.castShadow = cast;
+      });
+    });
+  }
+
   public reindexSlots(): void {
     const active = this.customers.filter((c) => c.state !== 'leaving');
     active.forEach((cust, idx) => {
@@ -142,6 +167,7 @@ export class ArcadeCustomerQueue {
   }
 
   public update(delta: number): void {
+    this.refreshShadowLod();
     // Automatic spawner (legacy path; the arcade economy drives spawning instead)
     if (this.autoSpawn) {
       this.spawnTimer += delta;
