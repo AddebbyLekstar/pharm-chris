@@ -128,8 +128,21 @@ for (const size of SIZES) {
     const res = await page.evaluate(async ({ id, x, z }) => {
       const d = window.pharmChris.director;
       d.player.position.set(x, 0, z);
-      await new Promise((r) => setTimeout(r, 500));
+      // Wait for the follow camera to settle instead of a flat 500 ms: the lerp is
+      // frame-rate dependent, and a fixed wait made the 320 px case fail one run in
+      // ten by measuring mid-flight.
       const cam = d.viewport.camera;
+      // Minimum settle, then wait for the follow camera to stop moving. The minimum
+      // matters: a still frame during the first 32 ms made the stability check fire
+      // before the camera had started to follow at all.
+      await new Promise((r) => setTimeout(r, 450));
+      const deadline = performance.now() + 1200;
+      let prev = cam.position.clone();
+      while (performance.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 60));
+        if (cam.position.distanceToSquared(prev) < 1e-7) break;
+        prev = cam.position.clone();
+      }
       cam.updateMatrixWorld(true);
       const v = d.player.position.clone().set(x, 0, z).project(cam);
       return {

@@ -291,6 +291,11 @@ export class ArcadeGameDirector {
   private applyExpansion(): void {
     this.expansionLevel = this.run.state.expansions;
     this.scene.applyExpansion(this.expansionLevel);
+    // The camera keeps its own idea of the room. Without this it still thinks the
+    // shop is 8.4 m wide after a wing has been added, and refuses to pan into it.
+    this.viewport.setRoomBounds(this.scene.getRoomBounds());
+    this.viewport.setExpansionLevel(this.expansionLevel);
+    this.viewport.setPlayableBounds(this.scene.getWalkableBounds());
     this.shelves.setCapacity(this.run.shelfCapacity);
   }
 

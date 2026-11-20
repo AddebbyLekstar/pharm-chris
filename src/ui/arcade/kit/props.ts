@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COUNTER, ROOM, WALKABLE, ZONES } from '../layout';
+import { COUNTER, ROOM, WALKABLE, ZONES, boundsFor as boundsForLevel } from '../layout';
 import { chamferBox } from './geometry';
 import { material, PALETTE, type MaterialFamily } from './materials';
 import { signage } from '../textures';
@@ -110,7 +110,13 @@ export const DRESSING: DressingPlacement[] = [
  * Dressing palette. Deliberately tiny: every extra colour is another material and
  * therefore another draw call. Six families, eleven colour buckets for 24 props.
  */
-const C = {
+export interface PropAnchor {
+  x: number;
+  z: number;
+  rotY?: number;
+}
+
+export const C = {
   woodDark: 0x6d472c,
   woodMid: 0x8a5a3b,
   brass: PALETTE.brass,
@@ -130,10 +136,10 @@ interface Bucket {
   geos: THREE.BufferGeometry[];
 }
 
-type Buckets = Map<string, Bucket>;
+export type Buckets = Map<string, Bucket>;
 
 /** Merge every bucket into one mesh per material. Shared across all props. */
-function mergeBuckets(buckets: Buckets): THREE.Mesh[] {
+export function mergeBuckets(buckets: Buckets): THREE.Mesh[] {
   const meshes: THREE.Mesh[] = [];
   for (const bucket of buckets.values()) {
     if (!bucket.geos.length) continue;
@@ -158,7 +164,7 @@ function mergeBuckets(buckets: Buckets): THREE.Mesh[] {
 }
 
 /** Writes a prop's parts in its own local frame, then merges everything by material. */
-class PropWriter {
+export class PropWriter {
   public readonly x: number;
   public readonly z: number;
   public readonly rotY: number;
@@ -168,7 +174,7 @@ class PropWriter {
    * props x 3 materials = ~49 draw calls, which is the whole problem this module
    * exists to avoid.
    */
-  constructor(placement: DressingPlacement, private shared: Buckets) {
+  constructor(placement: PropAnchor, private shared: Buckets) {
     this.x = placement.x;
     this.z = placement.z;
     this.rotY = placement.rotY ?? 0;
@@ -449,6 +455,33 @@ export function buildDressing(placements: DressingPlacement[] = DRESSING): THREE
 
   for (const mesh of mergeBuckets(buckets)) group.add(mesh);
   return group;
+}
+
+/**
+ * The dressing list for a given expansion level.
+ *
+ * Props are authored against the starting shop, but three of the four walls move
+ * when space is bought. Anything mounted on a wall that moved goes with it — an
+ * extinguisher left on the old east wall would hang in mid-air over the new aisle.
+ */
+export function placementsFor(level: number, placements: DressingPlacement[] = DRESSING): DressingPlacement[] {
+  const bounds = boundsForLevel(level).room;
+  const dxEast = bounds.maxX - ROOM.maxX;
+  const dxWest = bounds.minX - ROOM.minX;
+  const dzBack = bounds.minZ - ROOM.minZ;
+  if (dxEast === 0 && dxWest === 0 && dzBack === 0) return placements.map((p) => ({ ...p }));
+
+  return placements.map((p) => {
+    const onEastWall = p.x > ROOM.maxX - 0.7;
+    const onWestWall = p.x < ROOM.minX + 0.7;
+    const onBackWall = p.z < ROOM.minZ + 0.7;
+    return {
+      ...p,
+      // East wins if a prop somehow sits in two corners: that wall moves furthest.
+      x: p.x + (onEastWall ? dxEast : onWestWall ? dxWest : 0),
+      z: p.z + (onBackWall ? dzBack : 0),
+    };
+  });
 }
 
 /** Merged mesh count, so the budget test can assert the draw-call ceiling. */

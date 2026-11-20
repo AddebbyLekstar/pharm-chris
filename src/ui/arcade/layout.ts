@@ -119,9 +119,15 @@ export interface ExpansionBounds {
 }
 
 /**
- * Level 1 knocks the east partition down and widens the room 1.6 m; level 2 adds
- * the consultation corner on the north-west. The camera steps back one notch per
+ * Level 1 knocks the east partition down and widens the room 1.6 m; level 2 adds a
+ * 2 m north wing for the consultation bay. The camera steps back one notch per
  * level, so buying space visibly widens the shot.
+ *
+ * Two constraints decided this shape. A 1.2 m wing is a corridor, not a corner: a
+ * desk against the wall plus the person in front of it needs 1.9 m. And the camera
+ * looks in from the +x/+z side, so the north-WEST corner is the one place in the
+ * shop permanently behind the west shelf bays — furniture back there is occluded
+ * on every device. The wing therefore runs north along the visible east side.
  */
 export const EXPANSION_BOUNDS: Record<0 | 1 | 2, ExpansionBounds> = {
   0: { room: { ...ROOM }, walkable: { ...WALKABLE } },
@@ -130,8 +136,8 @@ export const EXPANSION_BOUNDS: Record<0 | 1 | 2, ExpansionBounds> = {
     walkable: { ...WALKABLE, maxX: WALKABLE.maxX + 1.6 },
   },
   2: {
-    room: { ...ROOM, maxX: ROOM.maxX + 1.6, minX: ROOM.minX - 1.2, minZ: ROOM.minZ - 1.2 },
-    walkable: { ...WALKABLE, maxX: WALKABLE.maxX + 1.6, minX: WALKABLE.minX - 1.2, minZ: WALKABLE.minZ - 1.2 },
+    room: { ...ROOM, maxX: ROOM.maxX + 1.6, minZ: ROOM.minZ - 2.0 },
+    walkable: { ...WALKABLE, maxX: WALKABLE.maxX + 1.6, minZ: WALKABLE.minZ - 2.0 },
   },
 };
 

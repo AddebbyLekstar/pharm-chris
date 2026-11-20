@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ROOM, SHOP_W, SHOP_D, WALL_T } from '../layout';
+import { ROOM, WALL_T, type Rect } from '../layout';
 import { chamferBox } from './geometry';
 import { material, PALETTE } from './materials';
 
@@ -19,6 +19,12 @@ export const DOOR_HEIGHT = 2.2;
 export interface RoomShellOptions {
   /** Wall height in metres. Lowered for the close-up camera, if ever needed. */
   height?: number;
+  /**
+   * Interior rectangle to build. Defaults to the starting shop. Expansions pass
+   * boundsFor(level).room, so a bought extension is real architecture — walls,
+   * floor, skirting, cut trim — instead of a plane pasted onto the old floor.
+   */
+  room?: Rect;
 }
 
 function wall(
@@ -43,27 +49,32 @@ export function buildRoomShell(options: RoomShellOptions = {}): THREE.Group {
   const group = new THREE.Group();
   group.name = 'room-shell';
   const H = options.height ?? WALL_HEIGHT;
+  const room: Rect = options.room ?? ROOM;
+  const shopW = room.maxX - room.minX;
+  const shopD = room.maxZ - room.minZ;
+  const centerX = (room.minX + room.maxX) / 2;
+  const centerZ = (room.minZ + room.maxZ) / 2;
 
   // --- Floor -------------------------------------------------------------
   // Named 'pharm-floor' because the v3 surface pass attaches the terrazzo maps
   // to that name; the shell owns the only floor in the scene.
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(SHOP_W, SHOP_D), material('tile'));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(shopW, shopD), material('tile'));
   floor.name = 'pharm-floor';
   floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0;
+  floor.position.set(centerX, 0, centerZ);
   floor.receiveShadow = true;
   group.add(floor);
 
   // --- Walls: centred on the outer half of the wall thickness, so the interior
   // face lands exactly on ROOM's bounds.
-  const outerZ = ROOM.minZ - WALL_T / 2;
-  const outerZFront = ROOM.maxZ + WALL_T / 2;
-  const outerX = ROOM.minX - WALL_T / 2;
-  const outerXEast = ROOM.maxX + WALL_T / 2;
+  const outerZ = room.minZ - WALL_T / 2;
+  const outerZFront = room.maxZ + WALL_T / 2;
+  const outerX = room.minX - WALL_T / 2;
+  const outerXEast = room.maxX + WALL_T / 2;
 
-  group.add(wall('pharm-wall-back', SHOP_W, H, WALL_T, 0, H / 2, outerZ, PALETTE.deepGreen));
-  group.add(wall('pharm-wall-west', WALL_T, H, SHOP_D + WALL_T * 2, outerX, H / 2, 0, PALETTE.plasterCream));
-  group.add(wall('pharm-wall-east', WALL_T, H, SHOP_D + WALL_T * 2, outerXEast, H / 2, 0, PALETTE.plasterCream));
+  group.add(wall('pharm-wall-back', shopW, H, WALL_T, centerX, H / 2, outerZ, PALETTE.deepGreen));
+  group.add(wall('pharm-wall-west', WALL_T, H, shopD + WALL_T * 2, outerX, H / 2, centerZ, PALETTE.plasterCream));
+  group.add(wall('pharm-wall-east', WALL_T, H, shopD + WALL_T * 2, outerXEast, H / 2, centerZ, PALETTE.plasterCream));
 
   // Front wall, split around a 2.2 m doorway that sits dead centre.
   //
@@ -71,13 +82,13 @@ export function buildRoomShell(options: RoomShellOptions = {}): THREE.Group {
   // when he stood at the entrance — the camera looks down at ~43 degrees, so any
   // near wall taller than ~0.4 m eats a two-metre character standing behind it.
   const FRONT_H = 0.35;
-  const segmentWidth = (SHOP_W - DOOR_WIDTH) / 2;
+  const segmentWidth = (shopW - DOOR_WIDTH) / 2;
   const segmentX = DOOR_WIDTH / 2 + segmentWidth / 2;
-  group.add(wall('pharm-wall-front-l', segmentWidth, FRONT_H, WALL_T, -segmentX, FRONT_H / 2, outerZFront, PALETTE.plasterCream));
-  group.add(wall('pharm-wall-front-r', segmentWidth, FRONT_H, WALL_T, segmentX, FRONT_H / 2, outerZFront, PALETTE.plasterCream));
+  group.add(wall('pharm-wall-front-l', segmentWidth, FRONT_H, WALL_T, centerX - segmentX, FRONT_H / 2, outerZFront, PALETTE.plasterCream));
+  group.add(wall('pharm-wall-front-r', segmentWidth, FRONT_H, WALL_T, centerX + segmentX, FRONT_H / 2, outerZFront, PALETTE.plasterCream));
   // Header over the opening: without it the front wall is two pillars and a hole.
   group.add(
-    wall('pharm-wall-front-header', DOOR_WIDTH, H - DOOR_HEIGHT, WALL_T, 0, DOOR_HEIGHT + (H - DOOR_HEIGHT) / 2, outerZFront)
+    wall('pharm-wall-front-header', DOOR_WIDTH, H - DOOR_HEIGHT, WALL_T, centerX, DOOR_HEIGHT + (H - DOOR_HEIGHT) / 2, outerZFront)
   );
 
   // --- Cut face ----------------------------------------------------------
@@ -93,9 +104,9 @@ export function buildRoomShell(options: RoomShellOptions = {}): THREE.Group {
     mesh.receiveShadow = true;
     return mesh;
   };
-  group.add(cap('shell-cut-trim-back', SHOP_W + WALL_T * 2, capDepth, 0, outerZ));
-  group.add(cap('shell-cut-trim-west', WALL_T, SHOP_D + WALL_T * 2, outerX, 0));
-  group.add(cap('shell-cut-trim-east', WALL_T, SHOP_D + WALL_T * 2, outerXEast, 0));
+  group.add(cap('shell-cut-trim-back', shopW + WALL_T * 2, capDepth, centerX, outerZ));
+  group.add(cap('shell-cut-trim-west', WALL_T, shopD + WALL_T * 2, outerX, centerZ));
+  group.add(cap('shell-cut-trim-east', WALL_T, shopD + WALL_T * 2, outerXEast, centerZ));
 
   // --- Skirting ----------------------------------------------------------
   // 10 cm band inside the walls, the line that stops the floor and the wall
@@ -108,9 +119,9 @@ export function buildRoomShell(options: RoomShellOptions = {}): THREE.Group {
     return mesh;
   };
   const inset = 0.05;
-  group.add(skirt('shell-skirt-back', SHOP_W - inset * 2, 0.08, 0, ROOM.minZ + inset));
-  group.add(skirt('shell-skirt-west', 0.08, SHOP_D - inset * 2, ROOM.minX + inset, 0));
-  group.add(skirt('shell-skirt-east', 0.08, SHOP_D - inset * 2, ROOM.maxX - inset, 0));
+  group.add(skirt('shell-skirt-back', shopW - inset * 2, 0.08, centerX, room.minZ + inset));
+  group.add(skirt('shell-skirt-west', 0.08, shopD - inset * 2, room.minX + inset, centerZ));
+  group.add(skirt('shell-skirt-east', 0.08, shopD - inset * 2, room.maxX - inset, centerZ));
 
   return group;
 }

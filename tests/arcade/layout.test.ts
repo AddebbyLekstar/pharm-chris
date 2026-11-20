@@ -42,7 +42,11 @@ describe('shop layout', () => {
   });
 
   it('grows the room outward at each expansion level', () => {
+    // Level 1 widens east; level 2 adds the north wing the consultation bay sits in.
+    // The north-west corner was rejected: the fixed camera looks in from +x/+z, so
+    // anything back there is permanently behind the west shelf bays.
     expect(EXPANSION_BOUNDS[1].room.maxX).toBeGreaterThan(EXPANSION_BOUNDS[0].room.maxX);
-    expect(EXPANSION_BOUNDS[2].room.minX).toBeLessThan(EXPANSION_BOUNDS[1].room.minX);
+    expect(EXPANSION_BOUNDS[2].room.minZ).toBeLessThan(EXPANSION_BOUNDS[1].room.minZ);
+    expect(EXPANSION_BOUNDS[2].room.maxX).toBe(EXPANSION_BOUNDS[1].room.maxX);
   });
 });

@@ -66,6 +66,12 @@ export class ArcadeViewport {
    * stale and the gate measured 77 px against an 80 px floor.
    */
   public characterHeight = 2.2;
+  /**
+   * Expansion level the framing is solved for. Each level steps the camera back one
+   * notch — a bigger shop you cannot see is not a bigger shop — which is done by
+   * dropping the character px floor, not by scaling the fov.
+   */
+  public expansionLevel = 0;
   /** Real floor extent; the camera may zoom in but must never show past these walls. */
   public roomBounds: PlayableBounds = { ...ROOM };
   public viewportHeight = 600;
@@ -156,6 +162,18 @@ export class ArcadeViewport {
     this.roomBounds = { ...bounds };
   }
 
+  /** Step the camera back one notch per purchased expansion. */
+  public setExpansionLevel(level: number): void {
+    this.expansionLevel = Math.max(0, Math.min(2, Math.floor(level)));
+    this.fitCameraToBounds();
+    this.camera.updateProjectionMatrix();
+  }
+
+  /** The px floor for the current expansion: 80 at level 0, 64 at level 2. */
+  private get minimumCharacterPx(): number {
+    return Math.max(56, MIN_CHARACTER_PX - this.expansionLevel * 8);
+  }
+
   public setPlayableBounds(bounds: PlayableBounds, padding = 0.6): void {
     this.bounds = {
       minX: bounds.minX - padding,
@@ -228,7 +246,7 @@ export class ArcadeViewport {
     // So the rules are: cover the width minimum (room never shrinks inside the
     // frame), and let the camera come closer until Chris is 46 px, cropping the
     // room and trailing the player. That is what The Sims Mobile does.
-    const dPlayer = this.solvePlayerDistance(MIN_CHARACTER_PX);
+    const dPlayer = this.solvePlayerDistance(this.minimumCharacterPx);
     const dCover = this.solveFillDistance(1.0);
     const dist = Math.min(dPlayer, dCover);
 

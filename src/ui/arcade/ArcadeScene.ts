@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { quality } from './quality';
 import { LIGHTS, artVersion, bakeContactAO } from './art';
 import { textures } from './textures';
-import { WALKABLE, ROOM, SHOP_W, SHOP_D, COUNTER, SHELF_BAYS, boundsFor } from './layout';
+import { WALKABLE, ROOM, SHOP_W, SHOP_D, COUNTER, SHELF_BAYS, boundsFor, type Rect } from './layout';
 import { buildRoomShell } from './kit/roomShell';
-import { buildDressing } from './kit/props';
+import { buildDressing, placementsFor } from './kit/props';
+import { buildExpansion } from './kit/expansion';
 import { chamferBox } from './kit/geometry';
 import { material } from './kit/materials';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -20,6 +21,13 @@ export class ArcadeScene {
   public group: THREE.Group;
   public scene: THREE.Scene;
   private expansionGroup: THREE.Group | null = null;
+  private shell: THREE.Group | null = null;
+  private dressing: THREE.Group | null = null;
+  /** Interior rectangle currently built. Expansions replace it, walls and all. */
+  private room: Rect = { ...ROOM };
+  private street: THREE.Mesh | null = null;
+  private curb: THREE.Mesh | null = null;
+  private level = 0;
   private bounds: WalkableBounds = { ...WALKABLE };
   /**
    * Static ground shadows, collected and merged into one mesh per opacity.
@@ -210,6 +218,100 @@ export class ArcadeScene {
     return mesh;
   }
 
+  /** (Re)build the dollhouse shell for the current room rectangle. */
+  private rebuildShell(): void {
+    if (this.shell) {
+      this.group.remove(this.shell);
+      this.shell.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+      });
+      this.shell = null;
+    }
+    this.shell = buildRoomShell({ room: this.room });
+    this.group.add(this.shell);
+
+    const floor = this.shell.getObjectByName('pharm-floor') as THREE.Mesh | undefined;
+    if (floor) this.paintFloor(floor);
+
+    // The cross is parented to the scene, not the shell, so it has to be walked
+    // back to whichever wall is now the back wall. Left alone it floats mid-room
+    // after the first expansion.
+    for (const name of ['pharm-cross-v', 'pharm-cross-h']) {
+      const cross = this.group.getObjectByName(name) as THREE.Mesh | undefined;
+      if (cross) cross.position.z = this.room.minZ + 0.07;
+    }
+
+    // Dressing is authored against the starting shop; when a wall moves, the props
+    // on it move too, or they end up hanging over the new aisle.
+    if (this.dressing) {
+      this.group.remove(this.dressing);
+      this.dressing.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+      });
+      this.dressing = null;
+    }
+    this.dressing = buildDressing(placementsFor(this.level));
+    this.group.add(this.dressing);
+  }
+
+  /** Street and kerb outside the doorway, sized to the current frontage. */
+  private rebuildStreet(): void {
+    if (this.street) {
+      this.group.remove(this.street);
+      this.street.geometry.dispose();
+      this.street = null;
+    }
+    if (this.curb) {
+      this.group.remove(this.curb);
+      this.curb.geometry.dispose();
+      this.curb = null;
+    }
+    const width = this.room.maxX - this.room.minX;
+    const centerX = (this.room.minX + this.room.maxX) / 2;
+
+    const streetMat = new THREE.MeshStandardMaterial({ color: 0x6a6f68, roughness: 0.9 });
+    const street = new THREE.Mesh(new THREE.PlaneGeometry(width + 6, 5), streetMat);
+    street.name = 'pharm-street';
+    street.rotation.x = -Math.PI / 2;
+    street.position.set(centerX, -0.02, this.room.maxZ + 3);
+    street.receiveShadow = true;
+    this.group.add(street);
+    this.street = street;
+
+    const curb = new THREE.Mesh(chamferBox(width + 6, 0.08, 0.3, 0.02), new THREE.MeshStandardMaterial({ color: 0x828784, roughness: 0.6 }));
+    curb.name = 'pharm-curb';
+    curb.position.set(centerX, 0.02, this.room.maxZ + 0.6);
+    this.group.add(curb);
+    this.curb = curb;
+
+    if (this.scene.background instanceof THREE.Texture) return; // surface pass owns the backdrop
+  }
+
+  /**
+   * Terrazzo on a floor mesh. The shell is rebuilt on every expansion, so the maps
+   * have to be reapplied or a bought extension appears as bare grey tile next to a
+   * textured hall. Repeat is derived from the room so a tile stays 2.1 m wide at any
+   * shop size instead of stretching with the plane.
+   */
+  private paintFloor(floor: THREE.Mesh): void {
+    const tex = textures();
+    if (!tex) return;
+    const mat = floor.material as THREE.MeshStandardMaterial;
+    const width = this.room.maxX - this.room.minX;
+    const depth = this.room.maxZ - this.room.minZ;
+    tex.terrazzo.repeat.set(width / 2.1, depth / 2.05);
+    tex.terrazzoRoughness?.repeat.set(width / 2.1, depth / 2.05);
+    mat.map = tex.terrazzo;
+    mat.roughnessMap = tex.terrazzoRoughness;
+    mat.color.setHex(0xffffff);   // the map carries the colour now
+    mat.roughness = 1.0;          // roughnessMap scales this down per pixel
+    mat.metalness = 0.03;
+    mat.envMapIntensity = 0.8;
+    mat.needsUpdate = true;
+  }
+
   private buildLighting(): void {
     const setup = LIGHTS[artVersion()];
 
@@ -259,30 +361,8 @@ export class ArcadeScene {
   }
 
   private buildPharmacyEnvironment(): void {
-    // The shell owns floor, walls, doorway, cut-face trim and skirting. Keeping it
-    // in the kit means the room can change size without touching this file.
-    this.group.add(buildRoomShell());
-
-    // Dressing: 24 authored props merged per material. Placed against the walls,
-    // never on the walkable floor — see kit/props.ts and its placement test.
-    this.group.add(buildDressing());
-
-    // Street beyond the doorway. Without it the 2.2 m opening looks onto the void,
-    // and the doorway is the whole reason the front wall is cut rather than solid.
-    // Lighter than the void: the street is ground the shop sits on, not a black hole.
-    const streetMat = new THREE.MeshStandardMaterial({ color: 0x6a6f68, roughness: 0.9 });
-    const street = new THREE.Mesh(new THREE.PlaneGeometry(SHOP_W + 6, 5), streetMat);
-    street.name = 'pharm-street';
-    street.rotation.x = -Math.PI / 2;
-    street.position.set(0, -0.02, ROOM.maxZ + 3);
-    street.receiveShadow = true;
-    this.group.add(street);
-
-    const curbMat = new THREE.MeshStandardMaterial({ color: 0x828784, roughness: 0.6 });
-    const curb = new THREE.Mesh(chamferBox(SHOP_W + 6, 0.08, 0.3, 0.02), curbMat);
-    curb.name = 'pharm-curb';
-    curb.position.set(0, 0.02, ROOM.maxZ + 0.6);
-    this.group.add(curb);
+    this.rebuildShell();
+    this.rebuildStreet();
 
     // Dispensing counter: teak base, ivory slab, two glass sneeze guards with a
     // 1.2 m service gap in the middle so the player and customers are not
@@ -401,6 +481,28 @@ export class ArcadeScene {
    * expansions cannot leak buffers.
    */
   public applyExpansion(level: number): void {
+    const clamped = Math.max(0, Math.min(2, Math.floor(level)));
+    this.level = clamped;
+
+    // Bounds move first: the camera and the player read them on the next frame, and
+    // a purchase that grows the room must widen where the player may stand.
+    this.bounds = { ...boundsFor(clamped).walkable };
+
+    // A bought expansion is a bigger room, not a mat laid on the old floor. Rebuild
+    // the shell (walls, floor, skirting, cut trim) against the new rectangle, then
+    // re-dress: every prop mounted on a wall that moved goes with the wall.
+    const next = boundsFor(clamped).room;
+    const changed =
+      next.minX !== this.room.minX ||
+      next.maxX !== this.room.maxX ||
+      next.minZ !== this.room.minZ ||
+      next.maxZ !== this.room.maxZ;
+    if (changed) {
+      this.room = { ...next };
+      this.rebuildShell();
+      this.rebuildStreet();
+    }
+
     if (this.expansionGroup) {
       this.group.remove(this.expansionGroup);
       this.expansionGroup.traverse((child) => {
@@ -409,66 +511,14 @@ export class ArcadeScene {
       });
       this.expansionGroup = null;
     }
-
-    // Bounds move first: the camera and the player read them on the next frame, and
-    // a purchase that grows the room must widen where the player may stand.
-    this.bounds = { ...boundsFor(level).walkable };
-    if (level <= 0) return;
-
-    const g = new THREE.Group();
-    const wood = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.7 });
-    const teal = new THREE.MeshStandardMaterial({ color: 0x1b4d3e, roughness: 0.45 });
-    const cream = new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.4 });
-
-    if (level >= 1) {
-      // The east partition comes down: patch of floor in the new bay.
-      const bay = boundsFor(1).room.maxX - ROOM.maxX;
-      const aisle = new THREE.Mesh(new THREE.PlaneGeometry(bay, SHOP_D), cream);
-      aisle.rotation.x = -Math.PI / 2;
-      aisle.position.set(ROOM.maxX + bay / 2, 0.004, 0);
-      aisle.receiveShadow = true;
-      g.add(aisle);
-
-      // Waiting bench against the front wall, clear of the queue slots at x +/-0.9.
-      const benchX = -2.3;
-      const benchZ = WALKABLE.maxZ - 0.4;
-      const bench = new THREE.Mesh(chamferBox(2.2, 0.16, 0.55, 0.03), wood);
-      bench.position.set(benchX, 0.46, benchZ);
-      bench.castShadow = true;
-      g.add(bench);
-      for (const dx of [-0.9, 0.9]) {
-        const leg = new THREE.Mesh(chamferBox(0.14, 0.46, 0.45, 0.02), teal);
-        leg.position.set(benchX + dx, 0.23, benchZ);
-        g.add(leg);
-      }
-
-      // Second register on the widened counter run.
-      const reg = new THREE.Mesh(chamferBox(0.7, 0.55, 0.6, 0.03), teal);
-      reg.position.set(COUNTER.x + 1.25, 1.53, COUNTER.z);
-      reg.castShadow = true;
-      g.add(reg);
+    // Level 0 adds nothing: an empty group in the scene graph is a child count that
+    // grows on every rebuild and tells a reviewer nothing.
+    if (clamped === 0) {
+      this.expansionGroup = null;
+      return;
     }
-
-    if (level >= 2) {
-      // Consultation corner in the north-west extension.
-      const cx = boundsFor(2).room.minX + 0.9;
-      const cz = boundsFor(2).room.minZ + 1.2;
-      const rail = new THREE.Mesh(chamferBox(2.4, 0.08, 0.08, 0.02), teal);
-      rail.position.set(cx, 2.5, cz);
-      g.add(rail);
-      const curtain = new THREE.Mesh(
-        chamferBox(2.3, 2.2, 0.05, 0.015),
-        new THREE.MeshStandardMaterial({ color: 0x2f6f56, roughness: 0.9, transparent: true, opacity: 0.85 })
-      );
-      curtain.position.set(cx, 1.35, cz);
-      g.add(curtain);
-      const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.5, 12), wood);
-      stool.position.set(cx, 0.25, cz + 0.7);
-      g.add(stool);
-    }
-
-    this.expansionGroup = g;
-    this.group.add(g);
+    this.expansionGroup = buildExpansion(clamped);
+    this.group.add(this.expansionGroup);
   }
 
   public getWalkableBounds(): WalkableBounds {
@@ -477,6 +527,6 @@ export class ArcadeScene {
 
   /** Interior faces of the walls, which the camera must not look past. */
   public getRoomBounds(): { minX: number; maxX: number; minZ: number; maxZ: number } {
-    return { ...ROOM };
+    return { ...this.room };
   }
 }
