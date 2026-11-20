@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { chamferBox } from './kit/geometry';
 import { ArcadeScene, WalkableBounds } from './ArcadeScene';
-import { mergeRig } from './mergeMeshes';
+import { mergeRigVertexColors } from './kit/rigMerge';
 
 export interface ArcadePlayerOptions {
   bounds?: WalkableBounds;
@@ -42,7 +42,8 @@ export class ArcadePlayer {
     this.mesh.position.set(0, 0, -2.0);
 
     this.buildStylizedModel();
-    mergeRig(this.mesh);
+    // One mesh per animated joint instead of one per joint-colour pair.
+    mergeRigVertexColors(this.mesh);
 
     // Spec 1.3 & 2.3: Grounded circular contact shadow beneath Chris
     this.contactShadow = ArcadeScene.createContactShadow(0.55, 0.36);

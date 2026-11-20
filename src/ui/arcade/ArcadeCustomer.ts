@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { QUEUE_SLOTS, ROOM, WALKABLE } from './layout';
-import { mergeRig } from './mergeMeshes';
+import { mergeRigVertexColors } from './kit/rigMerge';
 import { Customer } from '../../sim/types';
 import { ArcadeScene } from './ArcadeScene';
 
@@ -40,7 +40,8 @@ export class ArcadeCustomer {
     this.contactShadow = ArcadeScene.createContactShadow(0.48, 0.32);
     this.mesh.add(this.contactShadow);
 
-    mergeRig(this.mesh);
+    // One mesh per animated joint instead of one per joint-colour pair.
+    mergeRigVertexColors(this.mesh);
     this.updateTargetSlot(slotIndex);
   }
 
