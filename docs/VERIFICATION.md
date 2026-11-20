@@ -88,6 +88,40 @@ device framebuffer (`adb exec-out screencap -p`) showed the shop correctly.
 dock → shelf → counter rounds, cash and served deltas, a save/reload round trip, and
 a 6×-throttled phone pass.
 
+## Result of record — 2026-11-20, P2 prop kit (`index-D__Q-wKw.js`)
+
+P2 adds the dressing, the labelled stock and the modular expansions. Marker that the
+boxes ran this artifact: **188 tests** (was 174), `textureMB: 16.75`, and a phone
+frame with **101** draw calls over 95 meshes.
+
+| Box | Build | Tests | Layout gate | Draw calls | Errors |
+|---|---|---|---|---|---|
+| `hermes` | clean | 188/188 | pass (7 viewports) | 100.3 avg / 101 max phone, 237 desktop | 0 |
+| `hermes2` | clean | 188/188 | pass (7 viewports) | 100.3 avg / 101 max phone, 240 desktop | 0 |
+| `hermesandroid` | clean | — | pass (360×495) | 88, 10,472 tris | 0 |
+| `hermesandroid2` | clean | — | pass (360×495) | 90, 10,560 tris | 0 |
+
+Budgets: phone ≤120 draws (measured 101), desktop ≤240 (237/240), textures ≤24 MB
+(16.75). Expansion level 2 on a 390 px phone measures 106 draws and 11 k triangles;
+the whole 24-prop dressing is 14 draws / 3.4 k triangles; both expansions together
+are ≤10 draws.
+
+Desktop loops served 0 → 5 customers and restored cash/day/served from a 1,062 B
+save. Phone p50 66.7–83.4 ms on the PC boxes, 66.7/200 ms on the emulators — SwiftShader
+numbers, directional only, not a claim about a real phone GPU.
+
+**Overruns and near-misses, recorded rather than rounded away:**
+
+- Desktop draw calls sit at 237–240 against a 240 ceiling *at the queue sizes the
+  boxes happened to reach* (5 served, 2 queued). A forced 6-customer queue measures
+  **287**: each customer is ~10 draws after the per-material merge, and the shadow
+  pass doubles it. The fix is the spec's own crowd LOD — collapse a customer rig to
+  one vertex-coloured draw — and that is P3 character work, not P2.
+- `check-mobile.mjs` and `check-android.mjs` now wait for the follow camera to settle
+  before measuring a zone. Both previously used a flat 450–500 ms, which measured a
+  camera still in flight and produced one-frame-off failures (320 px and the
+  `hermesandroid2` 360×495 run).
+
 ## Result of record — 2026-11-19, art v3 build (`index--u5iKoNb.js`)
 
 Previous record: 2026-11-18, `index-ChqAL9nf.js`, 76 max phone draw calls, 0 texture MB.
