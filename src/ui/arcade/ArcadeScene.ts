@@ -4,8 +4,10 @@ import { LIGHTS, artVersion, bakeContactAO } from './art';
 import { textures } from './textures';
 import { WALKABLE, ROOM, SHOP_W, SHOP_D, COUNTER, SHELF_BAYS, boundsFor } from './layout';
 import { buildRoomShell } from './kit/roomShell';
+import { buildDressing } from './kit/props';
 import { chamferBox } from './kit/geometry';
 import { material } from './kit/materials';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export interface WalkableBounds {
   minX: number;
@@ -19,6 +21,14 @@ export class ArcadeScene {
   public scene: THREE.Scene;
   private expansionGroup: THREE.Group | null = null;
   private bounds: WalkableBounds = { ...WALKABLE };
+  /**
+   * Static ground shadows, collected and merged into one mesh per opacity.
+   *
+   * Every footprint used to be its own transparent quad: 13 of the scene's 105
+   * draw calls were single-colour shadow planes. They never move, so they merge.
+   * Character shadows stay separate — they follow the player.
+   */
+  private staticShadows: Array<{ geo: THREE.PlaneGeometry; opacity: number }> = [];
 
   constructor() {
     this.group = new THREE.Group();
@@ -36,6 +46,8 @@ export class ArcadeScene {
       // instead of being overwritten by one.
       bakeContactAO(this.group, 0, 0.9);
     }
+    // Every pass above queues its ground quads; merge them once, after the last one.
+    this.flushShadows();
   }
 
   /**
@@ -53,14 +65,7 @@ export class ArcadeScene {
     }
 
     const shade = (w: number, d: number, x: number, z: number, opacity: number): void => {
-      const plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(w, d),
-        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity, depthWrite: false })
-      );
-      plane.rotation.x = -Math.PI / 2;
-      plane.position.set(x, 0.02, z);   // clear of the floor plane's depth epsilon at 34 m
-      plane.renderOrder = 1;
-      this.group.add(plane);
+      this.pushShadow(w, d, x, z, opacity, 0.02);
     };
 
     // Counter footprint plus a soft overhang
@@ -172,14 +177,7 @@ export class ArcadeScene {
     // Fixtures sat straight on the floor with only a vertex gradient. A soft
     // footprint under each bay is what makes heavy furniture look heavy.
     const footprint = (w: number, d: number, x: number, z: number): void => {
-      const plane = new THREE.Mesh(
-        new THREE.PlaneGeometry(w, d),
-        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false })
-      );
-      plane.rotation.x = -Math.PI / 2;
-      plane.position.set(x, 0.015, z);
-      plane.renderOrder = 1;
-      this.group.add(plane);
+      this.pushShadow(w, d, x, z, 0.26, 0.015);
     };
     // Shelves used to be shadowed at |x| = 6.2 — the 16 x 18 m coordinates. Once the
     // shop shrank to 8.4 m those planes landed outside the room and the bays lost
@@ -265,6 +263,10 @@ export class ArcadeScene {
     // in the kit means the room can change size without touching this file.
     this.group.add(buildRoomShell());
 
+    // Dressing: 24 authored props merged per material. Placed against the walls,
+    // never on the walkable floor — see kit/props.ts and its placement test.
+    this.group.add(buildDressing());
+
     // Street beyond the doorway. Without it the 2.2 m opening looks onto the void,
     // and the doorway is the whole reason the front wall is cut rather than solid.
     // Lighter than the void: the street is ground the shop sits on, not a black hole.
@@ -339,11 +341,9 @@ export class ArcadeScene {
     this.group.add(till);
 
     // Contact shadows under the counter, so it sits on the floor instead of hovering.
+    // Accumulated with the rest of the static shadows and merged on the next flush.
     for (const offset of [-1.0, 0, 1.0]) {
-      const counterShadow = ArcadeScene.createContactShadow(0.85, 0.3);
-      counterShadow.scale.set(1.15, 0.8, 1);
-      counterShadow.position.set(COUNTER.x + offset, 0.006, COUNTER.z);
-      this.group.add(counterShadow);
+      this.pushShadow(1.15 * 0.85 * 2, 0.8 * 0.85 * 2, COUNTER.x + offset, COUNTER.z, 0.3, 0.006);
     }
 
     // Pharmacy cross on the back wall, above the dispensary.
@@ -356,6 +356,42 @@ export class ArcadeScene {
     crossH.name = 'pharm-cross-h';
     crossH.position.set(0, 2.25, ROOM.minZ + 0.07);
     this.group.add(crossH);
+  }
+
+  /** Queue a ground quad. Flushed into one mesh per opacity in flushShadows(). */
+  private pushShadow(w: number, d: number, x: number, z: number, opacity: number, y: number): void {
+    const geo = new THREE.PlaneGeometry(w, d);
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(x, y, z);
+    this.staticShadows.push({ geo, opacity });
+  }
+
+  /**
+   * Merge the queued ground quads. Materials are shared per opacity, so the whole
+   * shop's contact shading costs one draw call per distinct opacity instead of one
+   * per quad.
+   */
+  private flushShadows(): void {
+    if (!this.staticShadows.length) return;
+    const byOpacity = new Map<number, THREE.BufferGeometry[]>();
+    for (const { geo, opacity } of this.staticShadows) {
+      const bucket = byOpacity.get(opacity) ?? [];
+      bucket.push(geo);
+      byOpacity.set(opacity, bucket);
+    }
+    for (const [opacity, geos] of byOpacity) {
+      const merged = geos.length === 1 ? geos[0] : mergeGeometries(geos, false);
+      if (!merged) continue;
+      if (merged !== geos[0]) for (const geo of geos) geo.dispose();
+      const mesh = new THREE.Mesh(
+        merged,
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity, depthWrite: false })
+      );
+      mesh.name = `pharm-ground-shadow-${opacity}`;
+      mesh.renderOrder = 1;
+      this.group.add(mesh);
+    }
+    this.staticShadows = [];
   }
 
   /**

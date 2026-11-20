@@ -231,9 +231,94 @@ export function cardboard(): THREE.CanvasTexture {
 }
 
 /**
- * Category header plate. Real signage is the cheapest way to make a room read as
- * a business instead of a diorama: the eye finds words before it finds geometry.
+ * Stock label atlas: four medicine cartons in a 2 x 2 grid.
+ *
+ * The shelf packs were plain coloured boxes, which is why a stocked bay still read
+ * as placeholder geometry. A real label — brand band, drug name, strength, small
+ * print and a barcode — is what the eye uses to decide "those are medicines". One
+ * atlas serves every bay: each bay samples a different quadrant, so a shelf shows
+ * four designs while the whole shop still costs one draw call per bay.
  */
+let atlasCache: THREE.CanvasTexture | null = null;
+
+export function medicineAtlas(): THREE.CanvasTexture {
+  // One canvas for the whole shop; each bay clones the texture and samples a
+  // quadrant, which shares the GPU upload.
+  if (atlasCache) return atlasCache;
+  const size = 1024;
+  const cell = size / 2;
+  const { canvas, ctx } = sheet(size);
+  const rand = mulberry32(0x2b17c9);
+
+  const designs: Array<{ band: string; name: string; dose: string; ink: string }> = [
+    { band: '#c0453b', name: 'COARTEM', dose: '20/120 mg', ink: '#fdf6ec' },
+    { band: '#1f6b4f', name: 'PARACETAMOL', dose: '500 mg', ink: '#f4f8f2' },
+    { band: '#1e5f8a', name: 'AMOXICILLIN', dose: '250 mg', ink: '#f2f7fb' },
+    { band: '#b08a4a', name: 'INSULIN', dose: '100 IU/mL', ink: '#221a10' },
+  ];
+
+  designs.forEach((design, i) => {
+    const ox = (i % 2) * cell;
+    const oy = Math.floor(i / 2) * cell;
+
+    // Carton body: warm white with a faint fibre texture, so the pack is not flat.
+    ctx.fillStyle = '#f7f3e8';
+    ctx.fillRect(ox, oy, cell, cell);
+    for (let n = 0; n < 900; n++) {
+      ctx.fillStyle = rand() > 0.5 ? '#ffffff' : '#e8e2d2';
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(ox + rand() * cell, oy + rand() * cell, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    // Brand band across the upper third.
+    ctx.fillStyle = design.band;
+    ctx.fillRect(ox, oy, cell, cell * 0.34);
+    ctx.fillStyle = design.ink;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.round(cell * 0.115)}px "Segoe UI", system-ui, sans-serif`;
+    ctx.fillText(design.name, ox + cell / 2, oy + cell * 0.17, cell * 0.92);
+
+    // Strength, then the small print a real carton carries.
+    ctx.fillStyle = '#2a2320';
+    ctx.font = `600 ${Math.round(cell * 0.085)}px "Segoe UI", system-ui, sans-serif`;
+    ctx.fillText(design.dose, ox + cell / 2, oy + cell * 0.46, cell * 0.8);
+
+    ctx.fillStyle = '#6f675c';
+    for (let line = 0; line < 4; line++) {
+      const w = cell * (0.5 + rand() * 0.3);
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(ox + (cell - w) / 2, oy + cell * (0.57 + line * 0.06), w, cell * 0.018);
+    }
+    ctx.globalAlpha = 1;
+
+    // Barcode block: bars of random width in the lower strip.
+    const bx = ox + cell * 0.18;
+    const by = oy + cell * 0.83;
+    const bh = cell * 0.09;
+    let x = bx;
+    while (x < ox + cell * 0.82) {
+      const w = 1 + rand() * 5;
+      ctx.fillStyle = rand() > 0.35 ? '#201c18' : '#f7f3e8';
+      ctx.fillRect(x, by, w, bh);
+      x += w + 1 + rand() * 3;
+    }
+
+    // Cell border, so a mis-set repeat is visible instead of silently bleeding.
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(ox + 1, oy + 1, cell - 2, cell - 2);
+  });
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  atlasCache = texture;
+  return texture;
+}
+
 export function signage(text: string, background: string, ink = '#ffffff'): THREE.CanvasTexture {
   const { canvas, ctx } = sheet(512);
   ctx.fillStyle = background;
@@ -384,6 +469,10 @@ export function textures() {
 
 /** Dispose every generated texture (used by tests that build several scenes). */
 export function disposeTextures(): void {
+  if (atlasCache) {
+    atlasCache.dispose();
+    atlasCache = null;
+  }
   if (!cache) return;
   for (const value of Object.values(cache)) {
     if (value instanceof THREE.Texture) value.dispose();

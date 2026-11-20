@@ -34,9 +34,11 @@ export class ArcadePlayer {
     this.baseSpeed = options?.baseSpeed ?? 6.0;
 
     this.mesh = new THREE.Group();
-    // Spawn by the entrance, not on the register pad (the counter trigger would
-    // otherwise fire the moment the page loads).
-    this.mesh.position.set(0, 0, 4.2);
+    // Spawn mid-room, not by the entrance: the camera is zoomed to keep Chris at
+    // 80 px, so a shop-centre spawn frames both the delivery dock (the first
+    // objective) and the counter. Spawning on the register pad would fire the
+    // counter trigger on load; spawning at z = 4.2 was outside the walkable floor.
+    this.mesh.position.set(0, 0, -1.0);
 
     this.buildStylizedModel();
     mergeRig(this.mesh);

@@ -5,7 +5,7 @@ import { material } from './kit/materials';
 import { mergeRig } from './mergeMeshes';
 import { Product } from '../../sim/types';
 import { artVersion } from './art';
-import { textures, signage } from './textures';
+import { textures, signage, medicineAtlas } from './textures';
 
 export function normalizeCategory(cat: string): string {
   const c = (cat || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -139,31 +139,59 @@ export class PharmacyShelves3D {
         shelfBay.add(face);
       }
 
-      // Stock: one InstancedMesh per bay. Per-instance colour and height so a bay
-      // reads as packs of medicine, not as a row of identical tiles.
-      const boxGeo = chamferBox(0.42, 0.24, 0.3, 0.02);
+      // Stock: one InstancedMesh per bay, two rows deep and four tiers high.
+      //
+      // Three packs across on one shallow row read as a display model, not a shop
+      // that has been stocked: 32 packs per bay, with per-instance tint and height,
+      // is what makes the shelf read full from across the room while staying ONE
+      // draw call. The front row is written first so updateVisuals() trims the back
+      // row first as stock sells down.
+      const COLS = 4;
+      const TIERS = 4;
+      const ROWS = 2;
+      const total = COLS * TIERS * ROWS;
+      const boxGeo = chamferBox(0.33, 0.2, 0.26, 0.015);
+      // Each bay samples its own quadrant of the label atlas: four carton designs
+      // across the shop, still one draw call per bay. Without the map the packs are
+      // coloured blocks, which is exactly what made a full shelf read as placeholder.
+      const atlas = surf ? medicineAtlas() : null;
+      const bayIndex = this.shelfConfigs.findIndex((c) => c.category === conf.category);
+      let boxMap: THREE.Texture | null = null;
+      if (atlas) {
+        boxMap = atlas.clone();
+        boxMap.needsUpdate = true;
+        boxMap.wrapS = THREE.ClampToEdgeWrapping;
+        boxMap.wrapT = THREE.ClampToEdgeWrapping;
+        boxMap.repeat.set(0.5, 0.5);
+        boxMap.offset.set(bayIndex % 2 === 0 ? 0 : 0.5, bayIndex < 2 ? 0.5 : 0);
+      }
       const boxMat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        roughness: 0.35,
+        roughness: 0.38,
         vertexColors: false,
+        map: boxMap,
       });
-      const instanced = new THREE.InstancedMesh(boxGeo, boxMat, 12);
+      const instanced = new THREE.InstancedMesh(boxGeo, boxMat, total);
       const matrix = new THREE.Matrix4();
       const tint = new THREE.Color();
+      const white = new THREE.Color(0xffffff);
       const base = new THREE.Color(conf.color);
       let index = 0;
-      for (let r = 0; r < 4; r++) {
-        for (let c = 0; c < 3; c++) {
-          const xOffset = (c - 1) * 0.44;
-          const yOffset = 0.55 + r * 0.55;
-          const zOffset = facing * 0.18;
-          const scaleY = 0.75 + ((r * 3 + c) % 4) * 0.12;
-          matrix.makeTranslation(xOffset, yOffset, zOffset);
-          matrix.scale(new THREE.Vector3(0.92, scaleY, 0.9));
-          instanced.setMatrixAt(index, matrix);
-          tint.copy(base).lerp(new THREE.Color(0xffffff), 0.45 + ((r + c) % 3) * 0.12);
-          instanced.setColorAt(index, tint);
-          index++;
+      for (let row = 0; row < ROWS; row++) {
+        for (let tier = 0; tier < TIERS; tier++) {
+          for (let col = 0; col < COLS; col++) {
+            const xOffset = (col - (COLS - 1) / 2) * 0.36;
+            const yOffset = 0.56 + tier * 0.55;
+            const zOffset = facing * (0.17 - row * 0.34);
+            const scaleY = 0.8 + ((tier * COLS + col + row) % 4) * 0.12;
+            matrix.makeTranslation(xOffset, yOffset, zOffset);
+            matrix.scale(new THREE.Vector3(0.94, scaleY, 0.92));
+            instanced.setMatrixAt(index, matrix);
+            // Bays read as their category colour, but never as a solid block of it.
+            tint.copy(base).lerp(white, 0.52 + ((tier + col) % 3) * 0.14);
+            instanced.setColorAt(index, tint);
+            index++;
+          }
         }
       }
       instanced.instanceMatrix.needsUpdate = true;
@@ -234,8 +262,12 @@ export class PharmacyShelves3D {
       // root curve so a half-full shelf looks half full, and a working shelf never
       // looks bare.
       const ratio = Math.min(1, stock / Math.max(6, this.capacity));
-      const count = stock <= 0 ? 0 : Math.max(6, Math.min(12, Math.ceil(Math.sqrt(ratio) * 12)));
-      instanced.count = count;
+      const packed = instanced.instanceMatrix.count;
+      // A glass fridge with nothing behind the door reads as broken, not as sold out,
+      // so the cold-chain bay never drops below a quarter of its facings.
+      const floor = cat === 'cold_chain' ? Math.round(packed / 4) : 0;
+      const count = stock <= 0 ? floor : Math.max(Math.round(packed / 2), Math.ceil(Math.sqrt(ratio) * packed), floor);
+      instanced.count = Math.min(packed, count);
     }
   }
 }
