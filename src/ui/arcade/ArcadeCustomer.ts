@@ -108,7 +108,9 @@ export class ArcadeCustomer {
       new THREE.MeshBasicMaterial({ color: this.isStoryCustomer ? 0xffd700 : 0x00e676 })
     );
     this.bubbleMesh.name = 'symptom-bubble';
-    this.bubbleMesh.position.set(0, 2.02 * this.look.height, 0);
+    // Above the head, not on it. At exactly the head-top the octahedron covers the
+    // face, which on a sprite removes the one thing that makes it a person.
+    this.bubbleMesh.position.set(0, 2.02 * this.look.height + 0.34, 0);
     this.mesh.add(this.bubbleMesh);
   }
 
@@ -133,7 +135,7 @@ export class ArcadeCustomer {
     // Overhead bubble spin & hover
     if (this.bubbleMesh) {
       this.bubbleMesh.rotation.y += delta * 3;
-      const headTop = 2.02 * this.look.height;
+      const headTop = 2.02 * this.look.height + 0.34;
       this.bubbleMesh.position.y = headTop + Math.sin(performance.now() * 0.004) * 0.04;
     }
 

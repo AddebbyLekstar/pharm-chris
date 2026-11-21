@@ -207,3 +207,22 @@ describe('sprite batch', () => {
     expect(queue.getFrontCustomer()?.state).toBe('walking');
   });
 });
+
+describe('sprite atlas geometry', () => {
+  it('gives every cell the same UV height, however many looks were painted', async () => {
+    // Regression: the atlas used to grow from one row to three, and cells painted
+    // before the growth kept a full-height UV — each customer sampled a stretched
+    // slice across several cells, which painted a solid colour over the face.
+    const { SpriteAtlas, ATLAS_ROWS } = await import('../../src/ui/arcade/kit/spriteBatch');
+    const { customerLook } = await import('../../src/ui/arcade/kit/look');
+    const atlas = new SpriteAtlas();
+    const heights = new Set<number>();
+    for (let i = 0; i < 12; i++) {
+      const cell = atlas.preload(customerLook({ id: `cust_uv_${i}` } as never));
+      const box = atlas.uv(cell);
+      heights.add(Math.round((box.v1 - box.v0) * 1e6) / 1e6);
+    }
+    expect(heights.size).toBe(1);
+    expect([...heights][0]).toBeCloseTo(1 / ATLAS_ROWS, 6);
+  });
+});

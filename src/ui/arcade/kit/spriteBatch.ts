@@ -52,6 +52,17 @@ export const ATLAS_COLUMNS = 8;
  *  synthetic id can never grow the texture without bound. */
 export const ATLAS_MAX_LOOKS = 16;
 
+/**
+ * Fixed row count, allocated up front.
+ *
+ * This was the bug: UVs are derived from `rowCount`, and a canvas that grew from
+ * one row to three left every earlier quad with a full-height UV. Each customer then
+ * sampled a stretched slice across several cells — a solid colour patch where the
+ * face should be. A fixed grid means a cell's UV never depends on when it was
+ * painted.
+ */
+export const ATLAS_ROWS = 4;
+
 /** The SVG's feet sit on y = 124 of a 128-tall box. */
 const ART_BOX_H = 128;
 const ART_FEET_Y = 124;
@@ -102,7 +113,7 @@ export class SpriteAtlas {
   public readonly cellHeight = ATLAS_CELL_H;
   public readonly texture: THREE.Texture;
 
-  private rowCount = 1;
+  private rowCount = ATLAS_ROWS;
   private readonly cellsByKey = new Map<string, AtlasCell>();
   private readonly ordered: AtlasCell[] = [];
   private canvas: HTMLCanvasElement | null = null;
@@ -114,7 +125,7 @@ export class SpriteAtlas {
     if (typeof document !== 'undefined') {
       const canvas = document.createElement('canvas');
       canvas.width = this.columns * ATLAS_CELL_W;
-      canvas.height = this.rowCount * ATLAS_CELL_H;
+      canvas.height = ATLAS_ROWS * ATLAS_CELL_H;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         this.canvas = canvas;
@@ -125,9 +136,11 @@ export class SpriteAtlas {
     if (this.canvas) {
       const texture = new THREE.CanvasTexture(this.canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      // No mipmaps: an atlas cell has no gutter, so a lower mip blends the
+      // neighbouring customer's clothing into the edge of this one.
+      texture.minFilter = THREE.LinearFilter;
       texture.magFilter = THREE.LinearFilter;
-      texture.generateMipmaps = true;
+      texture.generateMipmaps = false;
       this.texture = texture;
     } else {
       // Node / no-DOM: the layout and geometry still exist, there is just nothing
@@ -192,21 +205,8 @@ export class SpriteAtlas {
     return this.register(lookKey(look), look);
   }
 
-  private ensureRows(rows: number): void {
-    if (rows <= this.rowCount || !this.canvas || !this.ctx) {
-      this.rowCount = Math.max(this.rowCount, rows);
-      return;
-    }
-    this.rowCount = rows;
-    // Resizing clears the canvas; every already-rasterised cell is redrawn from
-    // its decoded image, so growing the atlas never blanks an on-screen customer.
-    this.canvas.height = this.rowCount * ATLAS_CELL_H;
-    this.ctx.imageSmoothingEnabled = true;
-    for (const [key, image] of this.images) {
-      const cell = this.cellsByKey.get(key);
-      if (cell) this.drawCell(cell, image);
-    }
-    this.texture.needsUpdate = true;
+  private ensureRows(_rows: number): void {
+    // Grid is preallocated at ATLAS_ROWS; kept as a no-op so callers stay simple.
   }
 
   private paint(key: string, look: CharacterLook, cell: AtlasCell): void {
