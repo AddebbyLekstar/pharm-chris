@@ -158,7 +158,7 @@ export class ArcadeApp {
     const step = ONBOARDING_STEPS.find((s) => s.kind === kind);
     if (step) {
       this.telemetry.trackOnce(`onboarding_${kind}`, this.run.day);
-      this.hud.toast(step.hint, '#8fd6ff');
+      this.hud.toast(step.hint, '#4f6577');
       this.hud.pulseObjective();
     }
     if (this.onboarding.isComplete) this.telemetry.trackOnce('onboarding_license', this.run.day);
