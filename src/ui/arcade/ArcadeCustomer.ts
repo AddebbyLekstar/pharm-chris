@@ -3,6 +3,7 @@ import { QUEUE_SLOTS, ROOM, WALKABLE } from './layout';
 import { mergeRigVertexColors } from './kit/rigMerge';
 import { buildCharacterRig, type CharacterRig } from './kit/characterRig';
 import { customerLook, type CharacterLook } from './kit/look';
+import { customerArtMode } from './kit/spriteBatch';
 import { Customer } from '../../sim/types';
 import { ArcadeScene } from './ArcadeScene';
 
@@ -29,6 +30,12 @@ export class ArcadeCustomer {
   /** The person this customer is, derived deterministically from their id. */
   public readonly look: CharacterLook;
   public readonly rig: CharacterRig;
+  /**
+   * True when `?art=sprites` owns the body. The rig is still built — the walk
+   * cycle, the look and the bubble all read from it — but it is not attached, so
+   * the batch draws the figure and the rig costs no draw call.
+   */
+  public readonly rendersAsSprite: boolean;
 
   private walkTimer: number = 0;
   private bodyGroup: THREE.Group;
@@ -36,7 +43,7 @@ export class ArcadeCustomer {
   private rightLegSocket: THREE.Group;
   private leftArmSocket: THREE.Group;
   private rightArmSocket: THREE.Group;
-  private contactShadow!: THREE.Mesh;
+  private contactShadow?: THREE.Mesh;
   private bubbleMesh?: THREE.Mesh;
 
   constructor(data: Customer, slotIndex: number = 0) {
@@ -49,8 +56,10 @@ export class ArcadeCustomer {
     this.mesh.position.set(0, 0, 8.5);
 
     this.look = customerLook(data);
+    this.rendersAsSprite = customerArtMode() === 'sprites';
     this.rig = buildCharacterRig(this.look);
-    this.mesh.add(this.rig.root);
+    // In sprite mode the batch owns the body; the rig stays off the graph.
+    if (!this.rendersAsSprite) this.mesh.add(this.rig.root);
 
     this.bodyGroup = this.rig.body;
     this.leftLegSocket = this.rig.leftLeg;
@@ -60,9 +69,13 @@ export class ArcadeCustomer {
 
     this.buildSymptomBubble();
 
-    // Spec 1.3 & 2.3: Grounded circular contact shadow beneath customer
-    this.contactShadow = ArcadeScene.createContactShadow(0.48, 0.32);
-    this.mesh.add(this.contactShadow);
+    // Spec 1.3 & 2.3: Grounded circular contact shadow beneath customer.
+    // Sprite mode draws one batched shadow for the whole queue instead of a mesh
+    // per customer, so the body does not add six transparent draws.
+    if (!this.rendersAsSprite) {
+      this.contactShadow = ArcadeScene.createContactShadow(0.48, 0.32);
+      this.mesh.add(this.contactShadow);
+    }
 
     // One mesh per animated joint instead of one per joint-colour pair.
     mergeRigVertexColors(this.mesh);
@@ -149,7 +162,7 @@ export class ArcadeCustomer {
       this.bodyGroup.rotation.z = Math.sin(this.walkTimer) * 0.04;
 
       const shadowScale = Math.max(0.7, 1.0 - this.bodyGroup.position.y * 0.25);
-      this.contactShadow.scale.set(shadowScale, shadowScale, 1);
+      this.contactShadow?.scale.set(shadowScale, shadowScale, 1);
     } else {
       this.mesh.position.z = this.targetPosition.z;
       this.leftLegSocket.rotation.x = 0;
@@ -159,7 +172,7 @@ export class ArcadeCustomer {
       this.bodyGroup.position.y = 0;
       this.bodyGroup.rotation.z = 0;
       this.mesh.rotation.y = Math.PI; // Face counter (north)
-      this.contactShadow.scale.set(1, 1, 1);
+      this.contactShadow?.scale.set(1, 1, 1);
 
       if (this.state !== 'leaving') {
         if (this.slotIndex === 0) {

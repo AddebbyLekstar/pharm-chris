@@ -430,6 +430,8 @@ export class ArcadeGameDirector {
     // 8. Juice + camera
     this.juice.update(physDelta);
     this.viewport.updateCameraFollow(this.player.position, physDelta);
+    // Sprites are billboards: place them after the camera moves, before the draw.
+    this.customerQueue.syncSprites(this.viewport.camera);
     if (this.juice.shakeIntensity > 0) {
       this.viewport.camera.position.add(this.juice.shakeOffset);
     }

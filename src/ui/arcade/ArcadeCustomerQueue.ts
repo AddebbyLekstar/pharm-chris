@@ -4,6 +4,9 @@ import { Customer, Product } from '../../sim/types';
 import { PharmChrisEngine } from '../../sim/engine';
 import { PharmacyShelves3D, normalizeCategory } from './PharmacyShelves3D';
 import { ArcadeCustomer } from './ArcadeCustomer';
+import { customerArtMode, SpriteBatch } from './kit/spriteBatch';
+import { customerLook } from './kit/look';
+import { CUSTOMERS_ROSTER } from '../../sim/customers';
 
 /** First four customers cast shadows; the tail of the queue does not. */
 const CROWD_SHADOW_LIMIT = 4;
@@ -30,6 +33,11 @@ export class ArcadeCustomerQueue {
   public engine: PharmChrisEngine;
   public shelves: PharmacyShelves3D;
   public maxQueue: number;
+  /**
+   * The crowd as one atlas batch. Non-null only under `?art=sprites`; the 3D rig
+   * path stays the default and is untouched.
+   */
+  public sprites: SpriteBatch | null = null;
   
   private customers: ArcadeCustomer[] = [];
   private shadowLodCount = -1;
@@ -43,6 +51,15 @@ export class ArcadeCustomerQueue {
     this.maxQueue = options.maxQueue ?? 5;
     this.autoSpawn = options.autoSpawn ?? true;
     this.group = new THREE.Group();
+
+    if (customerArtMode() === 'sprites') {
+      // Rasterise the authored roster up front: a customer appearing with an
+      // empty atlas cell would pop in a frame late.
+      this.sprites = new SpriteBatch(16);
+      this.sprites.group.name = 'customer-sprite-layer';
+      for (const data of CUSTOMERS_ROSTER) this.sprites.preload(customerLook(data));
+      this.group.add(this.sprites.group);
+    }
 
     // Spawn initial customers immediately on initialization (default 2)
     const initialSpawn = options.initialSpawn ?? 2;
@@ -164,6 +181,16 @@ export class ArcadeCustomerQueue {
     active.forEach((cust, idx) => {
       cust.updateTargetSlot(idx);
     });
+  }
+
+  /**
+   * Place the sprite crowd for the current camera. Called after the follow camera
+   * settles so a moving camera does not shear the quads by one frame.
+   */
+  public syncSprites(camera?: THREE.Camera): void {
+    if (!this.sprites) return;
+    this.sprites.sync(this.customers);
+    if (camera) this.sprites.update(camera);
   }
 
   public update(delta: number): void {
