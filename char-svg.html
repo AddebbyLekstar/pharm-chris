@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pharm Chris — SVG character sheet</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin: 0; background: #2b2622; font-family: ui-sans-serif, system-ui, sans-serif; color: #f4ece0; }
+      h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; margin: 22px 24px 8px; }
+      .strip { display: flex; gap: 14px; align-items: flex-end; padding: 10px 24px 18px; }
+      .floor { background: linear-gradient(#c9b79b, #b8a586); border-radius: 12px; padding: 14px 18px 10px; }
+      .cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .cap { font-size: 10px; opacity: .55; letter-spacing: .06em; }
+      .phone { width: 360px; background: linear-gradient(#d8c7a8, #c3ae8b); border-radius: 14px; padding: 10px; }
+    </style>
+  </head>
+  <body>
+    <h2>In-scene size — 80 px tall, on the shop floor</h2>
+    <div class="phone"><div class="strip" id="phone"></div></div>
+
+    <h2>Inspection size — 190 px</h2>
+    <div class="floor"><div class="strip" id="large"></div></div>
+
+    <h2>Chris and staff</h2>
+    <div class="floor"><div class="strip" id="cast"></div></div>
+    <script type="module" src="/scripts/char-svg.ts"></script>
+  </body>
+</html>
