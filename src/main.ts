@@ -1441,13 +1441,17 @@ function renderModeSwitcher(activeMode: '3d' | 'arcade'): void {
     const style = document.createElement('style');
     style.id = 'sim-mode-switcher-styles';
     style.textContent = `
-      #sim-mode-switcher { position:fixed; bottom:64px; left:10px; z-index:30; display:flex; gap:8px; align-items:center;
-        background:rgba(12,15,13,0.92); border:2px solid #00ffcc; border-radius:24px; padding:4px 8px;
-        box-shadow:0 6px 20px rgba(0,255,204,0.35); font-family:'Space Grotesk',sans-serif; }
-      #sim-mode-switcher button { min-height:44px; padding:8px 16px; border:none; border-radius:22px; font-weight:800;
-        font-size:12px; cursor:pointer; transition:background 0.2s,color 0.2s; text-transform:uppercase; font-family:monospace;
-        display:flex; align-items:center; gap:6px; touch-action:manipulation; background:transparent; color:#90a4ae; }
-      #sim-mode-switcher button[aria-pressed="true"] { background:#00ffcc; color:#0c0f0d; }
+      #sim-mode-switcher { position:fixed; bottom:64px; left:10px; z-index:30; display:flex; gap:4px; align-items:center;
+        background-color:#f5e9d3;
+        background-image:radial-gradient(rgba(90,60,30,0.07) 0.5px, transparent 0.7px), radial-gradient(rgba(90,60,30,0.05) 0.5px, transparent 0.7px);
+        background-size:3px 3px, 5px 5px;
+        border:1px solid #2b2119; border-radius:3px; padding:3px 4px;
+        box-shadow:0 1px 0 rgba(43,33,25,0.3), 0 6px 16px rgba(40,25,12,0.3); font-family:'Space Grotesk',sans-serif; }
+      #sim-mode-switcher button { min-height:44px; padding:8px 12px; border:1px solid transparent; border-radius:2px; font-weight:700;
+        font-size:11px; letter-spacing:0.1em; cursor:pointer; transition:background 0.15s,color 0.15s; text-transform:uppercase; font-family:'Space Grotesk',sans-serif;
+        display:flex; align-items:center; gap:6px; touch-action:manipulation; background:transparent; color:#6b5a49; }
+      #sim-mode-switcher .ico { display:block; flex:none; }
+      #sim-mode-switcher button[aria-pressed="true"] { background:#a84a24; color:#fdf6e9; border-color:#2b2119; }
       @media (max-width: 560px) {
         #sim-mode-switcher { bottom:12px; left:10px; gap:2px; padding:3px 5px; }
         #sim-mode-switcher button { min-width:44px; padding:8px 10px; justify-content:center; }
@@ -1459,10 +1463,14 @@ function renderModeSwitcher(activeMode: '3d' | 'arcade'): void {
 
   switcherEl.innerHTML = `
     <button id="btn-mode-arcade" type="button" aria-pressed="${activeMode === 'arcade'}" aria-label="3D Arcade Mode" title="3D Arcade Mode">
-      <span aria-hidden="true">🕹️</span><span class="label">3D Arcade Mode</span>
+      <svg class="ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+        <rect x="1.2" y="4.6" width="13.6" height="6.8" rx="2.4" /><path d="M4.2 8h2.4M5.4 6.8v2.4" /><path d="M10.5 7.2h.01M12 8.7h.01" />
+      </svg><span class="label">3D Arcade Mode</span>
     </button>
     <button id="btn-mode-3d" type="button" aria-pressed="${activeMode === '3d'}" aria-label="First-Person Mode" title="First-Person Mode">
-      <span aria-hidden="true">👁️</span><span class="label">First-Person Mode</span>
+      <svg class="ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1.4 8s2.4-4 6.6-4 6.6 4 6.6 4-2.4 4-6.6 4S1.4 8 1.4 8Z" /><circle cx="8" cy="8" r="1.9" />
+      </svg><span class="label">First-Person Mode</span>
     </button>
   `;
 
