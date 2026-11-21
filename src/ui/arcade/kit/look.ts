@@ -72,16 +72,34 @@ const pick = <T>(list: readonly T[], r: number): T => list[Math.floor(r * list.l
 
 const SKINS = [0x3b200f, 0x452814, 0x4a2e1b, 0x532e17, 0x3e2312, 0x5b3520] as const;
 
+/**
+ * Garment palette, pulled from the concept frame rather than from a colour wheel.
+ *
+ * The first pass used saturated teal, magenta and cobalt; under flat light they read
+ * as plastic toys. The reference is painted with sun-faded Lagos street cloth: olive,
+ * cream, terracotta, denim, ochre, sage. Muting the chroma is the single cheapest
+ * step toward the illustrated look, and it costs nothing at render time.
+ */
 const TOPS = [
-  0x00897b, 0x6a1b9a, 0x0288d1, 0xc2185b, 0xd18b1f, 0xc2683f, 0x303f9f, 0x2e7d5b, 0xf9a825,
-  0x37474f, 0xbf360c, 0x1b4a3c,
+  0x6f7a4f, // olive
+  0xe8dcc4, // unbleached cream
+  0xc0704a, // terracotta
+  0x6d8098, // faded denim
+  0xc59a52, // ochre
+  0x35544a, // deep green
+  0xb07a6e, // dusty rose
+  0x9a9287, // warm grey
+  0x44536b, // indigo
+  0xa85b42, // brick
+  0x8a9a7b, // sage
+  0xd8c9a8, // sand
 ] as const;
 
-const BOTTOMS = [0x212121, 0x1a237e, 0x263238, 0x37474f, 0x4e342e, 0x1b2a41] as const;
+const BOTTOMS = [0x4a4a45, 0x3f4a5a, 0x574c3f, 0x2f3a3a, 0x6b5a49, 0x394253] as const;
 
-const ACCENTS = [0xd84315, 0xd4af37, 0xff5722, 0x00e676, 0xeceff1, 0xbf360c] as const;
+const ACCENTS = [0xc2683f, 0xb08a4a, 0x7a4a3a, 0x5d6b4a, 0xd8c9a8, 0x8f5b4b] as const;
 
-const HAIR_COLOURS = [0x0f0f0f, 0x1a1210, 0x2b1b12] as const;
+const HAIR_COLOURS = [0x1b1512, 0x241a14, 0x2e211a] as const;
 
 const WOMAN_OUTFITS: readonly OutfitFamily[] = ['wrapper', 'tunic', 'kaftan', 'wrapper'];
 const MAN_OUTFITS: readonly OutfitFamily[] = ['agbada', 'tee', 'hoodie', 'tunic', 'tee'];
@@ -216,9 +234,9 @@ function generatedLook(id: string): CharacterLook {
 const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
   stocker: {
     skin: 0x452814,
-    top: 0x2e7d5b,
-    bottom: 0x1f2421,
-    accent: 0xf1e6cf,
+    top: 0x445a4a,
+    bottom: 0x3f4a45,
+    accent: 0xe8dcc4,
     hairColor: 0x0f0f0f,
     outfit: 'tee',
     hair: 'fade',
@@ -231,9 +249,9 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
   },
   cashier: {
     skin: 0x532e17,
-    top: 0x1e5a8a,
-    bottom: 0x1f2421,
-    accent: 0xf1e6cf,
+    top: 0x41505f,
+    bottom: 0x3f4a45,
+    accent: 0xe8dcc4,
     hairColor: 0x1a1210,
     outfit: 'tunic',
     hair: 'braids',
@@ -246,9 +264,9 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
   },
   cleaner: {
     skin: 0x3b200f,
-    top: 0x7a4a1e,
-    bottom: 0x1f2421,
-    accent: 0xf1e6cf,
+    top: 0x6b5340,
+    bottom: 0x3f4a45,
+    accent: 0xe8dcc4,
     hairColor: 0x0f0f0f,
     outfit: 'tee',
     hair: 'lowcut',

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { CharacterLook } from './look';
+import { chamferBox } from './geometry';
 
 /**
  * One rig, a cast.
@@ -70,7 +71,14 @@ function part(
   return mesh;
 }
 
-const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+/**
+ * Every part is cut, never a bare box.
+ *
+ * A raw cuboid has twelve 90° edges, each catching a hard highlight that reads as
+ * programmer art next to the chamfered furniture. 44 triangles instead of 12 buys the
+ * edge highlight that makes a silhouette look made rather than modelled in a hurry.
+ */
+const box = (w: number, h: number, d: number) => chamferBox(w, h, d, Math.min(w, h, d) * 0.16);
 
 /** Low-poly sphere: an eye costs ~48 triangles, not 288. */
 const ball = (r: number) => new THREE.SphereGeometry(r, 8, 5);

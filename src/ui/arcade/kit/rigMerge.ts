@@ -20,12 +20,25 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
  * not visible; the silhouette and colour blocking are what read.
  */
 
+/**
+ * Four-step ramp. `MeshToonMaterial` quantises the diffuse term into bands, which is
+ * what makes a form read as painted rather than rendered: the concept art has two or
+ * three tones per surface and no specular at all.
+ */
+function toonRamp(): THREE.DataTexture {
+  const tex = new THREE.DataTexture(new Uint8Array([96, 158, 214, 255]), 4, 1, THREE.RedFormat);
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 /** Shared by every character in the scene: one material, many coloured vertices. */
-export const CHARACTER_MATERIAL = new THREE.MeshStandardMaterial({
+export const CHARACTER_MATERIAL = new THREE.MeshToonMaterial({
   vertexColors: true,
-  roughness: 0.62,
-  metalness: 0.02,
-  name: 'character-vertex',
+  gradientMap: toonRamp(),
+  name: 'character-toon',
 });
 
 /** Attributes kept on a merged rig: the material needs nothing else. */
