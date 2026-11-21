@@ -23,6 +23,57 @@ export type Hairstyle = (typeof HAIRSTYLES)[number];
 export const HEADPIECES = ['gele', 'helmet', 'newsboy', 'fula', 'hijab'] as const;
 export type Headpiece = (typeof HEADPIECES)[number];
 
+/**
+ * The parts of a face that survive being 30 px wide.
+ *
+ * Outfit colour and hairstyle were doing all the differentiating, so a queue read as
+ * one man photocopied into six shirts. At 80 px nobody resolves a nose; they resolve
+ * skull width, jaw, brow bar, eye gap and mouth line. Those are the traits below, and
+ * the renderer draws each one as a different path, not a different tint.
+ */
+export const HEAD_SHAPES = ['round', 'long', 'square'] as const;
+export type HeadShape = (typeof HEAD_SHAPES)[number];
+
+export const EYE_SPACINGS = ['close', 'wide'] as const;
+export type EyeSpacing = (typeof EYE_SPACINGS)[number];
+
+export const BROW_WEIGHTS = ['thin', 'medium', 'heavy'] as const;
+export type BrowWeight = (typeof BROW_WEIGHTS)[number];
+
+export const MOUTHS = ['smile', 'flat', 'full'] as const;
+export type Mouth = (typeof MOUTHS)[number];
+
+export const CHEEKS = ['soft', 'cut'] as const;
+export type Cheek = (typeof CHEEKS)[number];
+
+export const AGES = ['young', 'middle', 'elder'] as const;
+export type Age = (typeof AGES)[number];
+
+export interface FaceTraits {
+  /** Skull + jaw silhouette: round, long/narrow, or square-jawed. */
+  headShape: HeadShape;
+  eyeSpacing: EyeSpacing;
+  browWeight: BrowWeight;
+  mouth: Mouth;
+  /** Soft cheeks read younger; a cut cheekbone line reads leaner and older. */
+  cheek: Cheek;
+  /** Not a number: it moves posture, hair volume and a few face lines together. */
+  age: Age;
+}
+
+/**
+ * Stance, kept small. All three values are applied to the upper body only, so the
+ * feet never leave y = 124 and the sprite never leaves its box.
+ */
+export interface Posture {
+  /** Degrees of shoulder slope, -4..4. */
+  shoulderTilt: number;
+  /** Degrees of head tilt, -6..6. */
+  headTilt: number;
+  /** Which arm hangs away from the body: -1 left, 1 right, 0 neither. */
+  armOut: -1 | 0 | 1;
+}
+
 export interface CharacterLook {
   skin: number;
   /** Garment / uniform colour. */
@@ -34,14 +85,18 @@ export interface CharacterLook {
   outfit: OutfitFamily;
   hair: Hairstyle;
   headpiece: Headpiece | null;
-  /** Width multiplier, 0.90–1.12. Silhouette, not scale: height does not follow it. */
+  /** Width multiplier, 0.86–1.20. Silhouette, not scale: height does not follow it. */
   build: number;
-  /** Height multiplier, 0.92–1.08, applied at the hips so feet stay on the floor. */
+  /** Height multiplier, 0.86–1.12, applied at the hips so feet stay on the floor. */
   height: number;
   beard: boolean;
   glasses: boolean;
   /** Carries a shoulder bag; grounds a silhouette that is otherwise a box. */
   bag: boolean;
+  /** Skull, brows, eyes, mouth, cheek and age. Drawn, not just coloured. */
+  face: FaceTraits;
+  /** Shoulder slope, head tilt and the arm that hangs out. */
+  posture: Posture;
 }
 
 type Gender = 'woman' | 'man';
@@ -128,6 +183,9 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       beard: false,
       glasses: false,
       bag: false,
+      // Round face, wide-set eyes, full mouth: the aunty who has fed the street.
+      face: { headShape: 'round', eyeSpacing: 'wide', browWeight: 'medium', mouth: 'full', cheek: 'soft', age: 'elder' },
+      posture: { shoulderTilt: 1.8, headTilt: 3.2, armOut: -1 },
     },
   },
   {
@@ -146,6 +204,9 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       beard: false,
       glasses: false,
       bag: true,
+      // Long face, close eyes, thin brows: the lean dispatch rider.
+      face: { headShape: 'long', eyeSpacing: 'close', browWeight: 'thin', mouth: 'smile', cheek: 'cut', age: 'young' },
+      posture: { shoulderTilt: -1.2, headTilt: -2.4, armOut: 1 },
     },
   },
   {
@@ -164,6 +225,9 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       beard: true,
       glasses: false,
       bag: false,
+      // Square jaw, heavy brow, flat mouth: the newsboy who does not haggle.
+      face: { headShape: 'square', eyeSpacing: 'wide', browWeight: 'heavy', mouth: 'flat', cheek: 'cut', age: 'middle' },
+      posture: { shoulderTilt: 2.2, headTilt: -1.4, armOut: 0 },
     },
   },
   {
@@ -182,11 +246,60 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       beard: true,
       glasses: false,
       bag: false,
+      // Long face under the fula cap, deep-set close eyes, heavy brow, flat mouth.
+      face: { headShape: 'long', eyeSpacing: 'close', browWeight: 'heavy', mouth: 'flat', cheek: 'cut', age: 'elder' },
+      posture: { shoulderTilt: 3, headTilt: 2, armOut: -1 },
     },
   },
 ];
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round1 = (n: number): number => Math.round(n * 10) / 10;
+
+/** Weighted draw from an ordered list; falls through to the last entry. */
+function weighted<T>(entries: ReadonlyArray<readonly [T, number]>, r: number): T {
+  let acc = 0;
+  for (const [value, share] of entries) {
+    acc += share;
+    if (r < acc) return value;
+  }
+  return entries[entries.length - 1][0];
+}
+
+/**
+ * The face is drawn from its own stream, not the outfit stream. If it shared the
+ * main rng, face would be a function of garment: every terracotta wrapper would get
+ * the same jaw, and the crowd would still be correlated in the dimension that reads.
+ */
+function generatedFace(id: string): FaceTraits {
+  const r = rng(hashId(`${id}:face`));
+  const headShape = weighted<HeadShape>(
+    [['round', 0.4], ['long', 0.34], ['square', 0.26]],
+    r(),
+  );
+  const eyeSpacing = weighted<EyeSpacing>([['close', 0.56], ['wide', 0.44]], r());
+  const browWeight = weighted<BrowWeight>(
+    [['thin', 0.32], ['medium', 0.4], ['heavy', 0.28]],
+    r(),
+  );
+  const mouth = weighted<Mouth>([['smile', 0.48], ['flat', 0.3], ['full', 0.22]], r());
+  const cheek = weighted<Cheek>([['soft', 0.56], ['cut', 0.44]], r());
+  const age = weighted<Age>([['young', 0.38], ['middle', 0.4], ['elder', 0.22]], r());
+
+  return { headShape, eyeSpacing, browWeight, mouth, cheek, age };
+}
+
+/** Posture amplitude follows age: the young stand straight, the old settle. */
+function generatedPosture(id: string, age: Age): Posture {
+  const r = rng(hashId(`${id}:posture`));
+  const slope = age === 'elder' ? 3 : age === 'middle' ? 2 : 1.2;
+  const nod = age === 'elder' ? 5 : age === 'middle' ? 3.6 : 2.4;
+  return {
+    shoulderTilt: round1((r() * 2 - 1) * slope),
+    headTilt: round1((r() * 2 - 1) * nod),
+    armOut: pick([-1, 0, 1, 0, 0], r()) as -1 | 0 | 1,
+  };
+}
 
 /** Deterministic look for a customer. Same id, same person, every load. */
 export function customerLook(customer: Pick<Customer, 'id'>): CharacterLook {
@@ -208,6 +321,7 @@ function generatedLook(id: string): CharacterLook {
   const hairColor = pick(HAIR_COLOURS, r());
   const outfit = pick(gender === 'woman' ? WOMAN_OUTFITS : MAN_OUTFITS, r());
   const hair = pick(gender === 'woman' ? WOMAN_HAIR : MAN_HAIR, r());
+  const face = generatedFace(id);
 
   return {
     skin,
@@ -218,11 +332,13 @@ function generatedLook(id: string): CharacterLook {
     outfit,
     hair,
     headpiece: hair === 'headwrap' ? (r() < 0.35 ? 'hijab' : 'gele') : null,
-    build: round2(0.9 + r() * 0.22),
-    height: round2(0.92 + r() * 0.16),
+    build: round2(0.86 + r() * 0.34),
+    height: round2(0.86 + r() * 0.26),
     beard: gender === 'man' && hair !== 'bald' && r() < 0.3,
     glasses: r() < 0.18,
     bag: r() < 0.3,
+    face,
+    posture: generatedPosture(id, face.age),
   };
 }
 
@@ -246,6 +362,8 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
     beard: false,
     glasses: false,
     bag: false,
+    face: { headShape: 'square', eyeSpacing: 'close', browWeight: 'medium', mouth: 'flat', cheek: 'cut', age: 'young' },
+    posture: { shoulderTilt: 1.2, headTilt: -1.6, armOut: 1 },
   },
   cashier: {
     skin: 0x532e17,
@@ -261,6 +379,8 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
     beard: false,
     glasses: true,
     bag: false,
+    face: { headShape: 'round', eyeSpacing: 'wide', browWeight: 'thin', mouth: 'smile', cheek: 'soft', age: 'middle' },
+    posture: { shoulderTilt: -0.8, headTilt: 2.4, armOut: -1 },
   },
   cleaner: {
     skin: 0x3b200f,
@@ -276,6 +396,8 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
     beard: true,
     glasses: false,
     bag: false,
+    face: { headShape: 'long', eyeSpacing: 'wide', browWeight: 'heavy', mouth: 'flat', cheek: 'cut', age: 'elder' },
+    posture: { shoulderTilt: 2.6, headTilt: -3.4, armOut: 0 },
   },
 };
 

@@ -1,4 +1,4 @@
-import type { CharacterLook } from './look';
+import type { CharacterLook, HeadShape } from './look';
 
 /**
  * Characters as vector illustration, not geometry.
@@ -52,6 +52,72 @@ export function lighten(color: number, amount: number): string {
 
 const INK = '#241a14';
 const WHITE = '#f6f1e6';
+
+/** One decimal, no trailing .0: keeps the markup readable and the tests exact. */
+const num = (n: number): string => {
+  const v = Math.round(n * 10) / 10;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+};
+
+/** Blend two packed RGB colours, t towards b. */
+function mix(a: number, b: number, t: number): number {
+  const ch = (shift: number): number =>
+    Math.round(((a >> shift) & 0xff) * (1 - t) + ((b >> shift) & 0xff) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
+/**
+ * Skull metrics per head shape, in sprite coordinates. Width and jaw do the reading
+ * at 80 px; the chin rise is what separates a soft round jaw from a squared one.
+ */
+interface HeadMetrics {
+  w: number;
+  top: number;
+  chin: number;
+  /** Jaw width as a fraction of skull width. */
+  jaw: number;
+  /** How far the jaw corners sit above the chin. */
+  chinRise: number;
+}
+
+const HEAD_METRICS: Record<HeadShape, HeadMetrics> = {
+  round: { w: 15.2, top: 11.6, chin: 45.4, jaw: 0.62, chinRise: 2.4 },
+  long: { w: 12.6, top: 10.2, chin: 45.8, jaw: 0.52, chinRise: 1.2 },
+  square: { w: 15.8, top: 12.0, chin: 45.2, jaw: 0.86, chinRise: 0.8 },
+};
+
+/** Symmetric head outline: temples at full width, jaw tapered by the shape. */
+function headOutline(m: HeadMetrics): string {
+  const h = m.chin - m.top;
+  const rx = m.w;
+  const jaw = rx * m.jaw;
+  const right = 32 + rx;
+  const left = 32 - rx;
+  const yTemple = m.top + h * 0.34;
+  const yWide = m.top + h * 0.62;
+  const yJaw = m.top + h * 0.92;
+  const corner = m.chin - m.chinRise;
+  return [
+    `M32 ${num(m.top)}`,
+    `C ${num(32 + rx * 0.62)} ${num(m.top)}, ${num(right)} ${num(m.top + h * 0.1)}, ${num(right)} ${num(yTemple)}`,
+    `C ${num(right)} ${num(yWide)}, ${num(32 + jaw)} ${num(yJaw)}, ${num(32 + jaw * 0.8)} ${num(corner)}`,
+    `Q ${num(32 + jaw * 0.42)} ${num(m.chin)}, 32 ${num(m.chin)}`,
+    `Q ${num(32 - jaw * 0.42)} ${num(m.chin)}, ${num(32 - jaw * 0.8)} ${num(corner)}`,
+    `C ${num(32 - jaw)} ${num(yJaw)}, ${num(left)} ${num(yWide)}, ${num(left)} ${num(yTemple)}`,
+    `C ${num(left)} ${num(m.top + h * 0.1)}, ${num(32 - rx * 0.62)} ${num(m.top)}, 32 ${num(m.top)}`,
+    'Z',
+  ].join(' ');
+}
+
+/** The lit side: a narrow crescent down the right cheek and jaw, inside the outline. */
+function cheekShadow(m: HeadMetrics): string {
+  const h = m.chin - m.top;
+  const rx = m.w;
+  const jaw = rx * m.jaw;
+  const corner = m.chin - m.chinRise;
+  return `M${num(32 + rx * 0.52)} ${num(m.top + 1)} C ${num(32 + rx * 0.92)} ${num(m.top + h * 0.12)}, ${num(32 + rx * 0.99)} ${num(m.top + h * 0.34)}, ${num(32 + rx * 0.94)} ${num(m.top + h * 0.52)} C ${num(32 + rx * 0.88)} ${num(m.top + h * 0.74)}, ${num(32 + jaw * 0.95)} ${num(corner - 1)}, ${num(32 + jaw * 0.6)} ${num(corner)} Q ${num(32 + jaw * 0.3)} ${num(m.chin - 1.8)}, 32 ${num(m.chin - 3)} C ${num(32 + jaw * 0.5)} ${num(m.chin - 5.4)}, ${num(32 + rx * 0.55)} ${num(m.top + h * 0.6)}, ${num(32 + rx * 0.52)} ${num(m.top + 1)} Z`;
+}
+
 
 /** Torso + hips, per outfit family. All coordinates sit inside the 64 x 128 box. */
 function torsoPaths(outfit: CharacterLook['outfit'], top: number, bottom: number): string {
@@ -107,8 +173,8 @@ function legs(outfit: CharacterLook['outfit'], bottom: number): string {
   if (covered) {
     // Feet only: the garment hem hides the legs, exactly as it does in the reference.
     return `
-      <path d="M21 112 h9 l2 10 h-11 z" fill="${hex(0x2a2320)}" stroke="${INK}" stroke-width="1.1"/>
-      <path d="M34 112 h9 l1 10 h-11 z" fill="${hex(0x2a2320)}" stroke="${INK}" stroke-width="1.1"/>`;
+      <path d="M21 112 h9 l2 12 h-11 z" fill="${hex(0x2a2320)}" stroke="${INK}" stroke-width="1.1"/>
+      <path d="M34 112 h9 l1 12 h-11 z" fill="${hex(0x2a2320)}" stroke="${INK}" stroke-width="1.1"/>`;
   }
   return `
     <path d="M22 84 h9 v34 h-9 z" fill="${trouser}" stroke="${INK}" stroke-width="1.2"/>
@@ -118,18 +184,38 @@ function legs(outfit: CharacterLook['outfit'], bottom: number): string {
     <path d="M33 117 h12 l2 7 h-13 z" fill="${hex(0x2a2320)}" stroke="${INK}" stroke-width="1.1"/>`;
 }
 
-function arms(outfit: CharacterLook['outfit'], top: number, skin: number): string {
+function arms(
+  outfit: CharacterLook['outfit'],
+  top: number,
+  skin: number,
+  armOut: -1 | 0 | 1,
+): string {
   const sleeve = hex(top);
   const sleeveDark = shade(top, 0.16);
   const bareArm = outfit === 'tee' || outfit === 'wrapper' || outfit === 'hoodie';
   const lower = bareArm ? hex(skin) : sleeve;
   const lowerDark = bareArm ? shade(skin, 0.18) : sleeveDark;
 
-  return `
+  const left = `
     <path d="M17 50 c-3 0 -5 2 -5 5 l-1 22 c0 2 1 4 3 4 c2 0 4 -2 4 -4 l1 -20 z" fill="${sleeve}" stroke="${INK}" stroke-width="1.2"/>
-    <path d="M12 76 c-2 0 -3 2 -3 4 l0 14 c0 2 1 3 3 3 c2 0 3 -1 3 -3 l0 -14 c0 -2 -1 -4 -3 -4 z" fill="${lower}" stroke="${INK}" stroke-width="1.1"/>
+    <path d="M12 76 c-2 0 -3 2 -3 4 l0 14 c0 2 1 3 3 3 c2 0 3 -1 3 -3 l0 -14 c0 -2 -1 -4 -3 -4 z" fill="${lower}" stroke="${INK}" stroke-width="1.1"/>`;
+  const right = `
     <path d="M47 50 c3 0 5 2 5 5 l1 22 c0 2 -1 4 -3 4 c-2 0 -4 -2 -4 -4 l-1 -20 z" fill="${sleeve}" stroke="${INK}" stroke-width="1.2"/>
-    <path d="M52 76 c2 0 3 2 3 4 l0 14 c0 2 -1 3 -3 3 c-2 0 -3 -1 -3 -3 l0 -14 c0 -2 1 -4 3 -4 z" fill="${lower}" stroke="${INK}" stroke-width="1.1"/>
+    <path d="M52 76 c2 0 3 2 3 4 l0 14 c0 2 -1 3 -3 3 c-2 0 -3 -1 -3 -3 l0 -14 c0 -2 1 -4 3 -4 z" fill="${lower}" stroke="${INK}" stroke-width="1.1"/>`;
+
+  // One arm hangs a few degrees away from the body. It is a six-degree rotation
+  // around the shoulder: enough to break the outline at 80 px, small enough that the
+  // hand never reaches the edge of the box.
+  const tilt = (side: 'left' | 'right'): string => {
+    const angle = side === 'left' ? (armOut === -1 ? 6 : 0) : armOut === 1 ? -6 : 0;
+    if (!angle) return '';
+    const pivot = side === 'left' ? '15 53' : '49 53';
+    return `rotate(${angle} ${pivot})`;
+  };
+
+  return `
+    <g${tilt('left') ? ` transform="${tilt('left')}"` : ''}>${left}</g>
+    <g${tilt('right') ? ` transform="${tilt('right')}"` : ''}>${right}</g>
     <path d="M45 52 l1 20 l2 0 l-1 -20 z" fill="${sleeveDark}" opacity="0.7"/>
     <path d="M49 78 l0 14 l2 0 l0 -14 z" fill="${lowerDark}" opacity="0.7"/>`;
 }
@@ -139,19 +225,80 @@ function head(look: CharacterLook): string {
   const skinDark = shade(look.skin, 0.16);
   const hair = hex(look.hairColor);
   const accent = hex(look.accent);
+  const f = look.face;
+  const m = HEAD_METRICS[f.headShape];
+  const h = m.chin - m.top;
+  const rx = m.w;
+  const eyeY = m.top + h * 0.47;
+  const eyeGap = f.eyeSpacing === 'wide' ? 13 : 9;
+  const eyeCx = 32.8;
+  const eyeR =
+    (f.headShape === 'long' ? 2.75 : 3.1) +
+    (f.age === 'young' ? 0.12 : f.age === 'elder' ? -0.22 : 0);
+  const eyeRy = eyeR + 0.3;
+  const leftEye = eyeCx - eyeGap / 2;
+  const rightEye = eyeCx + eyeGap / 2;
+  const mouthY = m.chin - 6.2;
+  const mouthW = Math.min(9.2, rx * 0.58);
+  const mouthX = 32.4;
+  const lip = mix(look.skin, 0xb0563f, 0.38);
+
+  const browY =
+    eyeY - (f.browWeight === 'heavy' ? 4.3 : f.browWeight === 'medium' ? 5 : 5.5);
+  const browW = f.browWeight === 'heavy' ? 2.9 : f.browWeight === 'medium' ? 2 : 1.3;
+  const browArch = f.browWeight === 'heavy' ? -0.5 : f.browWeight === 'thin' ? -2.2 : -1.6;
+
+  const mouth =
+    f.mouth === 'smile'
+      ? `<path data-part="mouth" d="M${num(mouthX - mouthW / 2)} ${num(mouthY)} q${num(mouthW / 2)} ${num(mouthW * 0.34)} ${num(mouthW)} 0" fill="none" stroke="${INK}" stroke-width="1.9" stroke-linecap="round"/>`
+      : f.mouth === 'flat'
+        ? `<path data-part="mouth" d="M${num(mouthX - mouthW / 2)} ${num(mouthY + 0.5)} h${num(mouthW)}" fill="none" stroke="${INK}" stroke-width="1.7" stroke-linecap="round"/>`
+        : `<path data-part="mouth" d="M${num(mouthX - mouthW / 2)} ${num(mouthY)} q${num(mouthW / 2)} -2.3 ${num(mouthW)} 0 q${num(-mouthW / 2)} 4.8 ${num(-mouthW)} 0 Z" fill="${lip}" stroke="${INK}" stroke-width="0.9" stroke-linejoin="round"/>`;
+
+  const cheekCut =
+    f.cheek === 'cut'
+      ? `
+        <path data-part="cheek-left" d="M${num(32 - rx * 0.62)} ${num(eyeY + 4.2)} q-1.4 3.2 0.2 5.6" fill="none" stroke="${shade(look.skin, 0.34)}" stroke-width="1" opacity="0.55" stroke-linecap="round"/>
+        <path data-part="cheek-right" d="M${num(32 + rx * 0.62)} ${num(eyeY + 4.2)} q1.4 3.2 -0.2 5.6" fill="none" stroke="${shade(look.skin, 0.34)}" stroke-width="1" opacity="0.55" stroke-linecap="round"/>`
+      : '';
+
+  // Age is legible at this size through the set of the mouth and the marks around
+  // it, not through wrinkles. Two short nasolabial strokes and a heavier lid line.
+  const ageMarks =
+    f.age === 'elder'
+      ? `
+        <path d="M${num(32 + rx * 0.3)} ${num(mouthY - 3.4)} q-1.4 3.2 0.3 5.2" fill="none" stroke="${skinDark}" stroke-width="0.9" opacity="0.6" stroke-linecap="round"/>
+        <path d="M${num(32 - rx * 0.3)} ${num(mouthY - 3.4)} q1.4 3.2 -0.3 5.2" fill="none" stroke="${skinDark}" stroke-width="0.9" opacity="0.6" stroke-linecap="round"/>
+        <path d="M${num(leftEye - 2.6)} ${num(eyeY + eyeRy + 0.8)} q2.6 1.2 5.2 0" fill="none" stroke="${skinDark}" stroke-width="0.8" opacity="0.45" stroke-linecap="round"/>
+        <path d="M${num(rightEye - 2.6)} ${num(eyeY + eyeRy + 0.8)} q2.6 1.2 5.2 0" fill="none" stroke="${skinDark}" stroke-width="0.8" opacity="0.45" stroke-linecap="round"/>`
+      : '';
+
+  const lensW = Math.min(7.4, eyeGap - 2.2);
+  const glasses = look.glasses
+    ? `<g data-part="glasses">
+        <rect x="${num(leftEye - lensW / 2)}" y="${num(eyeY - 3)}" width="${num(lensW)}" height="6" rx="1.6" fill="${WHITE}" fill-opacity="0.12" stroke="${INK}" stroke-width="1.5"/>
+        <rect x="${num(rightEye - lensW / 2)}" y="${num(eyeY - 3)}" width="${num(lensW)}" height="6" rx="1.6" fill="${WHITE}" fill-opacity="0.12" stroke="${INK}" stroke-width="1.5"/>
+        <path d="M${num(leftEye + lensW / 2)} ${num(eyeY - 0.4)} h${num(eyeGap - lensW)}" stroke="${INK}" stroke-width="1.2"/>
+        <path d="M${num(leftEye - lensW / 2)} ${num(eyeY - 1)} h-3 M${num(rightEye + lensW / 2)} ${num(eyeY - 1)} h3" stroke="${INK}" stroke-width="1.2"/>
+      </g>`
+    : '';
 
   const face = `
-    <path d="M32 12 c9 0 15 6 15 15 c0 10 -7 18 -15 18 c-8 0 -15 -8 -15 -18 c0 -9 6 -15 15 -15 z" fill="${skin}" stroke="${INK}" stroke-width="1.5"/>
-    <path d="M38 13 c6 3 9 8 9 14 c0 10 -7 18 -15 18 c-2 0 -4 -1 -5 -2 c9 -1 14 -8 14 -17 c0 -5 -1 -9 -3 -13 z" fill="${skinDark}" opacity="0.5"/>
-    <path d="M17 12 c9 0 15 6 15 15 c0 10 -7 18 -15 18 c-8 0 -15 -8 -15 -18 c0 -9 6 -15 15 -15 z" fill="none"/>
-    <ellipse cx="27" cy="28" rx="3.4" ry="3.7" fill="${WHITE}" stroke="${INK}" stroke-width="0.9"/>
-    <ellipse cx="39" cy="28" rx="3.4" ry="3.7" fill="${WHITE}" stroke="${INK}" stroke-width="0.9"/>
-    <circle cx="28" cy="28.4" r="1.8" fill="${INK}"/>
-    <circle cx="40" cy="28.4" r="1.8" fill="${INK}"/>
-    <path d="M22.4 23 q3.8 -2.4 7.4 -0.6" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
-    <path d="M36 22.6 q3.6 -1.6 7.2 0.6" fill="none" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>
-    <path d="M33 30.5 q0 4 -2.4 5.5" fill="none" stroke="${INK}" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
-    <path d="M28 38.6 q4.5 3 9 0" fill="none" stroke="${INK}" stroke-width="1.9" stroke-linecap="round"/>
+    <path data-part="head" d="${headOutline(m)}" fill="${skin}" stroke="${INK}" stroke-width="1.5"/>
+    <path d="${cheekShadow(m)}" fill="${skinDark}" opacity="0.45"/>
+    <ellipse data-part="eye-left" cx="${num(leftEye)}" cy="${num(eyeY)}" rx="${num(eyeR)}" ry="${num(eyeRy)}" fill="${WHITE}" stroke="${INK}" stroke-width="0.9"/>
+    <ellipse data-part="eye-right" cx="${num(rightEye)}" cy="${num(eyeY)}" rx="${num(eyeR)}" ry="${num(eyeRy)}" fill="${WHITE}" stroke="${INK}" stroke-width="0.9"/>
+    <circle cx="${num(leftEye + 0.5)}" cy="${num(eyeY + 0.3)}" r="1.7" fill="${INK}"/>
+    <circle cx="${num(rightEye + 0.5)}" cy="${num(eyeY + 0.3)}" r="1.7" fill="${INK}"/>
+    <circle cx="${num(leftEye + 1.1)}" cy="${num(eyeY - 0.5)}" r="0.5" fill="${WHITE}" opacity="0.9"/>
+    <circle cx="${num(rightEye + 1.1)}" cy="${num(eyeY - 0.5)}" r="0.5" fill="${WHITE}" opacity="0.9"/>
+    <path data-part="brow-left" d="M${num(leftEye - 3.9)} ${num(browY + 0.4)} q3.9 ${num(browArch)} 7.6 0" fill="none" stroke="${INK}" stroke-width="${browW}" stroke-linecap="round"/>
+    <path data-part="brow-right" d="M${num(rightEye - 3.7)} ${num(browY)} q3.9 ${num(browArch)} 7.6 0" fill="none" stroke="${INK}" stroke-width="${browW}" stroke-linecap="round"/>
+    <path data-part="nose" d="M${num(32.8)} ${num(eyeY + 2.6)} q0.3 ${num(f.age === 'elder' ? 4 : 3.4)} -1.6 ${num(f.age === 'elder' ? 5 : 4.4)}" fill="none" stroke="${INK}" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+    ${ageMarks}
+    ${mouth}
+    ${cheekCut}
+    ${glasses}
   `;
 
   let hairShape = '';
@@ -201,6 +348,18 @@ function head(look: CharacterLook): string {
       break;
   }
 
+  // A styled crop follows the skull: the long head gets a narrower haircut, and age
+  // takes volume off the top. Authored headgear is left exactly as drawn, because a
+  // gele or a helmet is the identifying feature, not a hairstyle.
+  if (!look.headpiece) {
+    const volume = f.age === 'young' ? 1.04 : f.age === 'elder' ? 0.95 : 1;
+    const squeeze = rx / 15.2;
+    const dy = (m.top - 11.6) * 0.6;
+    hairShape = `<g data-part="hair" transform="translate(0 ${num(dy)}) translate(32 20) scale(${num(squeeze * volume)} ${num(volume)}) translate(-32 -20)">${hairShape}</g>`;
+  } else {
+    hairShape = `<g data-part="hair">${hairShape}</g>`;
+  }
+
   return `${face}${hairShape}`;
 }
 
@@ -210,27 +369,40 @@ const inkish = (look: CharacterLook): string => shade(look.skin, 0.35);
 export function characterSprite(look: CharacterLook, options: SpriteOptions = {}): SpriteGeometry {
   const width = options.width ?? 80;
   const height = width * 2;
-  const flip = options.flip ? ' scale(-1,1) translate(-64,0)' : '';
+  const flip = options.flip ? '<g transform="scale(-1,1) translate(-64,0)">' : '';
+  const flipEnd = options.flip ? '</g>' : '';
   const shadow = options.shadow === false
     ? ''
-    : `<ellipse cx="32" cy="124" rx="19" ry="4.4" fill="#000" opacity="0.16"/>`;
+    : `<ellipse cx="32" cy="123.4" rx="19" ry="4.2" fill="#000" opacity="0.16"/>`;
+
+  const tilt = look.posture.headTilt;
+  const headMarkup = tilt
+    ? `<g transform="rotate(${num(tilt)} 32 46)">${head(look)}</g>`
+    : head(look);
+
+  // Posture: the upper body leans from the hem, not the hips, so the shoulder line
+  // tilts while the legs and shoes stay planted on y = 124.
+  const lean = look.posture.shoulderTilt;
+  const upper = `
+    ${torsoPaths(look.outfit, look.top, look.bottom)}
+    ${arms(look.outfit, look.top, look.skin, look.posture.armOut)}
+    ${headMarkup}
+  `;
 
   const body = `
     ${legs(look.outfit, look.bottom)}
-    ${torsoPaths(look.outfit, look.top, look.bottom)}
-    ${arms(look.outfit, look.top, look.skin)}
-    ${head(look)}
-    ${look.glasses ? `<path d="M22 27 h7 M35 27 h7" stroke="${hex(look.accent)}" stroke-width="1.4" opacity="0.9"/>` : ''}
+    ${lean ? `<g transform="rotate(${num(lean)} 32 112)">${upper}</g>` : upper}
   `;
 
   // Foreshorten for a camera 43 degrees above the floor, and let the look's build
   // and height reach the drawing: a crowd of identically-proportioned sprites is
-  // the same clone problem in a different renderer.
+  // the same clone problem in a different renderer. 0.93 rather than 0.94 leaves a
+  // pixel of headroom so the tallest, fullest-haired figure still fits the box.
   const sx = 0.94 * look.build;
-  const sy = 0.94 * look.height;
+  const sy = 0.93 * look.height;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 128" width="${width}" height="${height}" class="char-sprite" style="overflow:visible">
     ${shadow}
-    <g transform="${flip}"><g transform="translate(32 124) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(-32 -124)">${body}</g></g>
+    ${flip}<g transform="translate(32 124) scale(${sx.toFixed(3)} ${sy.toFixed(3)}) translate(-32 -124)">${body}</g>${flipEnd}
   </svg>`;
 
   return { svg, width, height };
