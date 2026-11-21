@@ -122,6 +122,50 @@ export function chamferBox(width: number, height: number, depth: number, chamfer
   return geometry;
 }
 
+/**
+ * A single leaf blade: a tapered strip with a raised midrib and a droop.
+ *
+ * A flat quad reads as a paper cut-out from the isometric camera, which is the
+ * one angle this game is ever seen from. Three segments and a V-fold cost 12
+ * triangles and give the leaf a highlight down its spine plus a silhouette that
+ * curls away from the pot. The blade grows along +Y from the origin, so the
+ * caller only has to yaw it around the pot and tilt it outward.
+ */
+export function leafBlade(length: number, width: number, droop = 0.18, fold = 0.05): THREE.BufferGeometry {
+  const segments = 3;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const half = width / 2;
+
+  for (let s = 0; s <= segments; s++) {
+    const t = s / segments;
+    // Lanceolate taper: widest at 45 %, pinched at the stem and the tip.
+    const taper = Math.sin(Math.PI * Math.min(1, t * 1.08)) ** 0.7;
+    const w = Math.max(0.012, half * (0.35 + 0.65 * taper));
+    const y = t * length;
+    // Arch: the blade rises then falls away from the crown.
+    const z = -droop * t * t * length;
+    const cup = fold * (taper * 0.6 + 0.4);
+    // left edge, midrib, right edge
+    positions.push(-w, y, z + cup, 0, y, z, w, y, z + cup);
+  }
+
+  for (let s = 0; s < segments; s++) {
+    const a = s * 3;
+    const b = a + 3;
+    indices.push(a, b, a + 1, a + 1, b, b + 1);
+    indices.push(a + 1, b + 1, a + 2, a + 2, b + 1, b + 2);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((segments + 1) * 3 * 2).fill(0), 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  return geometry;
+}
+
 /** Triangle count of any geometry, indexed or not. */
 export function triCount(geometry: THREE.BufferGeometry): number {
   const index = geometry.getIndex();

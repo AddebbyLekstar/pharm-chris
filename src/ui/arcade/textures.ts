@@ -50,9 +50,13 @@ function finish(canvas: HTMLCanvasElement, repeatX = 1, repeatY = 1, srgb = true
 const TEXTURE_SIZE = 512;
 
 /**
- * Terrazzo: warm cement base, 1 m grid of grout lines, aggregate chips, and a
- * faint directional mottle so the tile does not read as a single flat plane.
+ * Terracotta: warm clay tiles, 1 m grid of grout lines, aggregate speckle and a
+ * faint directional mottle so the floor does not read as a single flat plane.
  * One texture covers 4 x 4 tiles; the caller sets repeat per surface.
+ *
+ * The reference floor is fired clay, not poured terrazzo: a brick-red base with
+ * cream grout and per-tile tone drift. The old near-white base made every warm
+ * light in the room look like a grey shadow.
  */
 export function terrazzo(): THREE.CanvasTexture {
   const { canvas, ctx } = sheet(TEXTURE_SIZE);
@@ -60,17 +64,27 @@ export function terrazzo(): THREE.CanvasTexture {
   const tiles = 4;
   const tile = TEXTURE_SIZE / tiles;
 
-  ctx.fillStyle = '#e8e2d4';
+  ctx.fillStyle = '#b4715a';
   ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
 
+  // Per-tile tone drift: four clay batches, not one. 4 % is enough to break the
+  // grid without turning the floor into a checkerboard.
+  for (let ty = 0; ty < tiles; ty++) {
+    for (let tx = 0; tx < tiles; tx++) {
+      const warm = rand() > 0.5;
+      ctx.fillStyle = warm ? 'rgba(206,132,96,0.10)' : 'rgba(120,66,46,0.09)';
+      ctx.fillRect(tx * tile, ty * tile, tile, tile);
+    }
+  }
+
   // Aggregate chips, varied warmth so the floor is not one colour.
-  const chips = ['#cfc7b4', '#b9ae98', '#f3efe4', '#a9a08c', '#d9d2c0', '#8e8674'];
+  const chips = ['#9c5c42', '#c9825d', '#8a4e36', '#d79a76', '#a8654a', '#e0b08c'];
   for (let i = 0; i < 2600; i++) {
     const x = rand() * TEXTURE_SIZE;
     const y = rand() * TEXTURE_SIZE;
     const r = 0.7 + rand() * 2.6;
     ctx.fillStyle = chips[Math.floor(rand() * chips.length)];
-    ctx.globalAlpha = 0.35 + rand() * 0.5;
+    ctx.globalAlpha = 0.22 + rand() * 0.42;
     ctx.beginPath();
     ctx.ellipse(x, y, r, r * (0.6 + rand() * 0.7), rand() * Math.PI, 0, Math.PI * 2);
     ctx.fill();
@@ -81,10 +95,10 @@ export function terrazzo(): THREE.CanvasTexture {
   // so it reads as a recess rather than a drawn grid.
   for (let i = 0; i <= tiles; i++) {
     const p = i * tile;
-    ctx.fillStyle = 'rgba(120,110,95,0.55)';
+    ctx.fillStyle = 'rgba(86,56,42,0.7)';
     ctx.fillRect(p - 1.5, 0, 3, TEXTURE_SIZE);
     ctx.fillRect(0, p - 1.5, TEXTURE_SIZE, 3);
-    ctx.fillStyle = 'rgba(255,252,244,0.35)';
+    ctx.fillStyle = 'rgba(236,196,160,0.28)';
     ctx.fillRect(p + 1.5, 0, 1.5, TEXTURE_SIZE);
     ctx.fillRect(0, p + 1.5, TEXTURE_SIZE, 1.5);
   }
@@ -321,6 +335,240 @@ export function medicineAtlas(): THREE.CanvasTexture {
   return texture;
 }
 
+/**
+ * Wall-paper atlas: four posters and a calendar in one 384 x 768 sheet.
+ *
+ * Each poster used to call signage() and own a 512 x 512 texture and its own
+ * draw call. At five pieces of wall paper that was 5 MB and five draws for
+ * decoration, and the fifth one would have pushed the boot past the texture
+ * budget. One atlas cell is 192 x 256, close to the 0.66 x 0.86 m poster the
+ * kit draws, so nothing is visibly stretched; the whole wall costs one upload
+ * and one merged draw.
+ */
+export const POSTER_ATLAS = { width: 384, height: 768, cols: 2, rows: 3, cellW: 192, cellH: 256 } as const;
+
+/** UV rectangle of an atlas cell, in three.js's bottom-left texture space. */
+export function posterCellUV(cell: number): { u0: number; v0: number; u1: number; v1: number } {
+  const col = cell % POSTER_ATLAS.cols;
+  const row = Math.floor(cell / POSTER_ATLAS.cols) % POSTER_ATLAS.rows;
+  const { width, height, cellW, cellH } = POSTER_ATLAS;
+  return {
+    u0: (col * cellW) / width,
+    u1: ((col + 1) * cellW) / width,
+    v0: 1 - ((row + 1) * cellH) / height,
+    v1: 1 - (row * cellH) / height,
+  };
+}
+
+let posterAtlasCache: THREE.CanvasTexture | null = null;
+
+export function posterAtlas(): THREE.CanvasTexture {
+  if (posterAtlasCache) return posterAtlasCache;
+  const { width, height, cellW, cellH } = POSTER_ATLAS;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D canvas context unavailable; poster atlas cannot be built');
+  const rand = mulberry32(0x9a17e3);
+
+  const font = (weight: number, size: number) =>
+    `${weight} ${size}px "Segoe UI", system-ui, sans-serif`;
+
+  // Deterministic paper grain over the whole sheet: photocopied stock, not vinyl.
+  const grain = (ox: number, oy: number): void => {
+    for (let i = 0; i < 420; i++) {
+      ctx.fillStyle = rand() > 0.5 ? 'rgba(255,255,255,0.12)' : 'rgba(60,40,24,0.06)';
+      ctx.fillRect(ox + rand() * cellW, oy + rand() * cellH, 1 + rand() * 1.6, 1 + rand() * 1.6);
+    }
+  };
+
+  const plate = (cell: number, bg: string): number[] => {
+    const ox = (cell % POSTER_ATLAS.cols) * cellW;
+    const oy = Math.floor(cell / POSTER_ATLAS.cols) * cellH;
+    ctx.fillStyle = bg;
+    ctx.fillRect(ox, oy, cellW, cellH);
+    return [ox, oy];
+  };
+
+  const centred = (text: string, x: number, y: number, weight: number, size: number, ink: string, max = cellW - 24): void => {
+    ctx.fillStyle = ink;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(weight, size);
+    ctx.fillText(text, x, y, max);
+  };
+
+  const ruledRow = (x: number, y: number, w: number, ink: string, strong = false): void => {
+    ctx.fillStyle = ink;
+    ctx.globalAlpha = strong ? 0.55 : 0.28;
+    ctx.fillRect(x, y, w, strong ? 1.6 : 1);
+    ctx.globalAlpha = 1;
+  };
+
+  // --- 0. Opening hours, deep green -------------------------------------
+  {
+    const [ox, oy] = plate(0, '#1f4b3f');
+    ctx.strokeStyle = '#e9dcc3';
+    ctx.lineWidth = 5;
+    ctx.strokeRect(ox + 8, oy + 8, cellW - 16, cellH - 16);
+
+    // Sun: an arc rising over a rule, drawn rather than an emoji so it keeps the
+    // same weight as the type at 46 px on a phone.
+    const cx = ox + cellW / 2;
+    const cy = oy + 76;
+    ctx.strokeStyle = '#e4b45c';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 24, Math.PI, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 7; i++) {
+      const a = Math.PI + (i / 6) * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 31, cy + Math.sin(a) * 31);
+      ctx.lineTo(cx + Math.cos(a) * 39, cy + Math.sin(a) * 39);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(cx - 44, cy + 2);
+    ctx.lineTo(cx + 44, cy + 2);
+    ctx.stroke();
+
+    centred('OPEN', cx, oy + 136, 700, 42, '#f6f1e6');
+    centred('8AM - 9PM', cx, oy + 177, 600, 24, '#f6f1e6');
+    ruledRow(ox + 44, oy + 197, cellW - 88, '#e9dcc3', true);
+    centred('MON - SAT', cx, oy + 215, 500, 15, '#cfdcd2');
+    grain(ox, oy);
+  }
+
+  // --- 1. Malaria test, brick red ---------------------------------------
+  {
+    const [ox, oy] = plate(1, '#b8433a');
+    ctx.fillStyle = '#f1e2c9';
+    ctx.fillRect(ox, oy, cellW, 26);
+    centred('TEST TODAY', ox + cellW / 2, oy + 13, 700, 12, '#7d2a24');
+
+    // A drop, the one pictogram everybody reads as "blood test".
+    ctx.fillStyle = '#f1e2c9';
+    ctx.beginPath();
+    ctx.moveTo(ox + cellW / 2, oy + 44);
+    ctx.bezierCurveTo(ox + cellW / 2 - 20, oy + 70, ox + cellW / 2 - 14, oy + 92, ox + cellW / 2, oy + 92);
+    ctx.bezierCurveTo(ox + cellW / 2 + 14, oy + 92, ox + cellW / 2 + 20, oy + 70, ox + cellW / 2, oy + 44);
+    ctx.fill();
+
+    centred('MALARIA', ox + cellW / 2, oy + 116, 700, 28, '#f6f1e6');
+    centred('RAPID TEST', ox + cellW / 2, oy + 141, 600, 16, '#f0cbb8');
+    centred('₦2,000', ox + cellW / 2, oy + 186, 700, 44, '#f6f1e6');
+    centred('RESULTS IN 15 MIN', ox + cellW / 2, oy + 224, 500, 11, '#f0cbb8');
+    grain(ox, oy);
+  }
+
+  // --- 2. Price list, cream ledger --------------------------------------
+  {
+    const [ox, oy] = plate(2, '#f6f1e6');
+    ctx.fillStyle = '#b08a4a';
+    ctx.fillRect(ox, oy, cellW, 40);
+    centred('PRICE LIST', ox + cellW / 2, oy + 20, 700, 21, '#2a2014');
+
+    const rows = ['PARACETAMOL', 'COARTEM', 'AMOXICILLIN', 'VITAMIN C', 'BANDAGE'];
+    rows.forEach((label, i) => {
+      const y = oy + 62 + i * 30;
+      centred(label, ox + 96, y, 600, 12, '#3a2c22', cellW - 40);
+      ruledRow(ox + 18, y + 11, cellW - 36, '#8a6a45');
+      ctx.fillStyle = '#b08a4a';
+      ctx.fillRect(ox + 18, y + 8, 3, 3);
+    });
+    centred('ASK THE CHEMIST', ox + cellW / 2, oy + 226, 600, 10, '#7a5a38');
+    grain(ox, oy);
+  }
+
+  // --- 3. Deworming, teal ------------------------------------------------
+  {
+    const [ox, oy] = plate(3, '#2e6f6b');
+    ctx.strokeStyle = '#e9dcc3';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(ox + 9, oy + 9, cellW - 18, cellH - 18);
+
+    // Capsule, tilted, with a seam: reads at thumbnail size.
+    ctx.save();
+    ctx.translate(ox + cellW / 2, oy + 74);
+    ctx.rotate(-0.5);
+    ctx.fillStyle = '#f6f1e6';
+    ctx.beginPath();
+    ctx.roundRect(-34, -13, 68, 26, 13);
+    ctx.fill();
+    ctx.fillStyle = '#d9a441';
+    ctx.beginPath();
+    ctx.roundRect(-34, -13, 34, 26, 13);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40,30,20,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.lineTo(0, 12);
+    ctx.stroke();
+    ctx.restore();
+
+    centred('DEWORMING', ox + cellW / 2, oy + 122, 700, 24, '#f6f1e6');
+    centred('FOR THE FAMILY', ox + cellW / 2, oy + 146, 500, 11, '#cfe3da');
+    centred('₦500', ox + cellW / 2, oy + 186, 700, 44, '#f0c45c');
+    centred('ONE DOSE · ALL AGES', ox + cellW / 2, oy + 220, 500, 10, '#cfe3da');
+    grain(ox, oy);
+  }
+
+  // --- 4. Wall calendar, November ---------------------------------------
+  {
+    const [ox, oy] = plate(4, '#f6f1e6');
+    ctx.fillStyle = '#1f4b3f';
+    ctx.fillRect(ox, oy, cellW, 46);
+    centred('NOVEMBER', ox + cellW / 2, oy + 20, 700, 19, '#f6f1e6');
+    centred('2026', ox + cellW / 2, oy + 36, 500, 10, '#c9d8cc');
+
+    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const left = ox + 14;
+    const top = oy + 56;
+    const cw = (cellW - 28) / 7;
+    const ch = 30;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(600, 9);
+    ctx.fillStyle = '#8a6a45';
+    days.forEach((d, i) => ctx.fillText(d, left + cw * (i + 0.5), top + 6));
+
+    // November 2026 starts on a Sunday: one leading blank cell in a Mon-first grid.
+    ctx.font = font(500, 10);
+    for (let day = 1; day <= 30; day++) {
+      const index = day; // 1st lands in the second column
+      const col = index % 7;
+      const row = Math.floor(index / 7);
+      const x = left + cw * (col + 0.5);
+      const y = top + 22 + row * ch;
+      if (day === 21) {
+        ctx.fillStyle = '#c0453b';
+        ctx.beginPath();
+        ctx.arc(x, y, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#f6f1e6';
+      } else {
+        ctx.fillStyle = col >= 5 ? '#a8865c' : '#3a2c22';
+      }
+      ctx.fillText(String(day), x, y);
+    }
+    ctx.fillStyle = '#c0453b';
+    ctx.font = font(600, 9);
+    ctx.textAlign = 'center';
+    ctx.fillText('STOCK COUNT', ox + cellW / 2, oy + cellH - 12);
+    grain(ox, oy);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  posterAtlasCache = texture;
+  return texture;
+}
+
 export function signage(text: string, background: string, ink = '#ffffff'): THREE.CanvasTexture {
   const { canvas, ctx } = sheet(512);
   ctx.fillStyle = background;
@@ -486,6 +734,38 @@ export function groundFade(): THREE.CanvasTexture {
 
 let cache: ReturnType<typeof buildCache> | null = null;
 
+/**
+ * Every texture the boot creates, with its dimensions.
+ *
+ * Kept as data rather than measured from the GPU so a node test can enforce the
+ * 20 MB ceiling without a WebGL context. `count` covers textures generated per
+ * call site (four shelf labels), which the rest of the game builds from signage().
+ */
+export const TEXTURE_MANIFEST: ReadonlyArray<{ name: string; width: number; height: number; count?: number }> = [
+  { name: 'terracotta-floor', width: 512, height: 512 },
+  { name: 'floor-roughness', width: 256, height: 256 },
+  { name: 'painted-wall', width: 512, height: 512 },
+  { name: 'teak', width: 512, height: 512 },
+  { name: 'laminate', width: 256, height: 256 },
+  { name: 'steel-teal', width: 256, height: 256 },
+  { name: 'steel-green', width: 256, height: 256 },
+  { name: 'cardboard', width: 256, height: 256 },
+  { name: 'dock-stencil', width: 512, height: 146 },
+  { name: 'zone-ring', width: 256, height: 256 },
+  { name: 'backdrop', width: 256, height: 512 },
+  { name: 'ground-fade', width: 4, height: 256 },
+  { name: 'medicine-atlas', width: 512, height: 512 },
+  { name: 'poster-atlas', width: POSTER_ATLAS.width, height: POSTER_ATLAS.height },
+  { name: 'shelf-label', width: 512, height: 512, count: 4 },
+];
+
+/** Base-level RGBA bytes, the same accounting as scripts/perf-probe.mjs. */
+export function textureMemoryMB(manifest = TEXTURE_MANIFEST): number {
+  let bytes = 0;
+  for (const entry of manifest) bytes += entry.width * entry.height * 4 * (entry.count ?? 1);
+  return bytes / 1048576;
+}
+
 function buildCache() {
   return {
     terrazzo: terrazzo(),
@@ -520,6 +800,10 @@ export function disposeTextures(): void {
   if (atlasCache) {
     atlasCache.dispose();
     atlasCache = null;
+  }
+  if (posterAtlasCache) {
+    posterAtlasCache.dispose();
+    posterAtlasCache = null;
   }
   if (!cache) return;
   for (const value of Object.values(cache)) {
