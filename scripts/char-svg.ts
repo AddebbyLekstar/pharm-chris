@@ -15,6 +15,8 @@ const CHRIS: CharacterLook = {
   beard: false,
   glasses: true,
   bag: false,
+  face: { headShape: 'long', eyeSpacing: 'close', browWeight: 'medium', mouth: 'flat', cheek: 'cut', age: 'middle' },
+  posture: { shoulderTilt: 0.6, headTilt: -1.2, armOut: 1 },
 };
 
 const mount = (hostId: string, entries: Array<{ look: CharacterLook; label: string; width: number }>): void => {

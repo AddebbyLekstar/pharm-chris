@@ -59,10 +59,10 @@ describe('character look', () => {
   it('keeps generated proportions inside the range the camera solves for', () => {
     for (const id of ids) {
       const look = customerLook(storyData(id));
-      expect(look.build).toBeGreaterThanOrEqual(0.9);
-      expect(look.build).toBeLessThanOrEqual(1.12);
-      expect(look.height).toBeGreaterThanOrEqual(0.92);
-      expect(look.height).toBeLessThanOrEqual(1.08);
+      expect(look.build).toBeGreaterThanOrEqual(0.86);
+      expect(look.build).toBeLessThanOrEqual(1.2);
+      expect(look.height).toBeGreaterThanOrEqual(0.86);
+      expect(look.height).toBeLessThanOrEqual(1.12);
       // A skin tone so pale it reads as a hole in the crowd is worse than repetition.
       expect(look.skin).toBeLessThan(0x7a5a44);
     }

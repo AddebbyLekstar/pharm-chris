@@ -21,6 +21,9 @@ const CHRIS: CharacterLook = {
   beard: false,
   glasses: true,
   bag: false,
+  // Chris is the fixed point of the cast: long face, level brows, closed mouth.
+  face: { headShape: 'long', eyeSpacing: 'close', browWeight: 'medium', mouth: 'flat', cheek: 'cut', age: 'middle' },
+  posture: { shoulderTilt: 0.6, headTilt: -1.2, armOut: 1 },
 };
 
 const CELL = 128;
