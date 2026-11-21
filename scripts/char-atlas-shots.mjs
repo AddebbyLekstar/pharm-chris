@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const OUT = 'C:/Users/hp/AppData/Local/hermes/cache/scratch/pharmchris/char-svg';
+fs.mkdirSync(OUT, { recursive: true });
+const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 900, height: 620 }, deviceScaleFactor: 2 });
+const errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+await page.goto('http://127.0.0.1:5199/char-atlas.html', { waitUntil: 'networkidle' });
+await page.waitForFunction('!!window.atlasReport', null, { timeout: 20000 }).catch(() => {});
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/atlas.png`, fullPage: true });
+const report = await page.evaluate(() => window.atlasReport ?? null);
+console.log(JSON.stringify({ report: report && { ...report, entries: report.entries.length }, errors }));
+await browser.close();
