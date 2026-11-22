@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   customerLook,
   staffLook,
@@ -392,6 +393,31 @@ describe('silhouette: beard, bag and hair mass', () => {
         expect(x, `${hair} overflows right`).toBeLessThanOrEqual(64);
         expect(y, `${hair} overflows the top`).toBeGreaterThanOrEqual(0);
       }
+    }
+  });
+});
+
+describe('hair switch hygiene', () => {
+  // A duplicated case block builds fine (esbuild warns, tsc does not) and the first
+  // binding silently wins — that is how seven hairstyle branches became dead code
+  // while every test still passed and the screenshots still looked plausible.
+  it('defines every hair case exactly once', () => {
+    const source = readFileSync('src/ui/arcade/kit/charSprite.ts', 'utf8');
+    for (const hair of [
+      'gele',
+      'headwrap',
+      'helmet',
+      'cap',
+      'fula',
+      'hijab',
+      'braids',
+      'afro',
+      'fade',
+      'lowcut',
+      'bald',
+    ]) {
+      const count = source.split(`case '${hair}':`).length - 1;
+      expect(count, `${hair} is defined ${count} times`).toBe(1);
     }
   });
 });

@@ -423,50 +423,6 @@ function head(look: CharacterLook): string {
         <path d="M16 34 C 9 30, 8 18, 15 12 C 19 8.4, 26 7.2, 32 7.2 C 38 7.2, 45 8.4, 49 12 C 56 18, 55 30, 48 34 C 46 30, 45 26, 44 22 C 40 19, 36 18, 32 18 C 28 18, 24 19, 20 22 C 19 26, 18 30, 16 34 Z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
         <path d="M20 17 c4 -3 8 -4 12 -4 c4 0 8 1 12 4" fill="none" stroke="${shade(look.hairColor, 0.4)}" stroke-width="1.2" opacity="0.7"/>`;
       break;
-    case 'headwrap':
-      // The crown was authored with its peak 4 units above the top of the box, which
-      // the tallest build then pushed off screen. A flatter dome keeps the wrap's
-      // width without needing a transform the bounds check cannot see.
-      hairShape = `
-        <path d="M17 20 c-2 -7 5 -12 15 -12 c10 0 17 5 15 12 c-1 5 -6 3 -15 3 c-9 0 -14 2 -15 -3 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
-        <path d="M20 13 c6 -4 18 -4 24 0" fill="none" stroke="${shade(look.accent, 0.25)}" stroke-width="1.6"/>`;
-      break;
-    case 'helmet':
-      hairShape = `
-        <path d="M16 22 c0 -10 7 -16 16 -16 c9 0 16 6 16 16 c0 3 -4 4 -6 2 c-3 -3 -7 -4 -10 -4 c-4 0 -8 1 -11 4 c-2 2 -5 1 -5 -2 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
-        <path d="M19 17 q13 -8 26 1" fill="none" stroke="${WHITE}" stroke-width="1.4" opacity="0.7"/>`;
-      break;
-    case 'cap':
-      hairShape = `
-        <path d="M17 21 c0 -9 7 -15 15 -15 c8 0 15 6 15 15 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
-        <path d="M47 21 q6 1 6 4 h-14 q5 -1 8 -4 z" fill="${shade(look.accent, 0.2)}" stroke="${INK}" stroke-width="1.2"/>`;
-      break;
-    case 'fula':
-      hairShape = `
-        <path d="M19 20 c0 -8 6 -13 13 -13 c7 0 13 5 13 13 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
-        <path d="M19 19 h26" stroke="${accent}" stroke-width="2"/>`;
-      break;
-    case 'hijab':
-      hairShape = `
-        <path d="M16 30 c-1 -12 6 -20 16 -20 c10 0 17 8 16 20 c0 6 -4 10 -6 12 c-3 -6 -6 -8 -10 -8 c-4 0 -7 2 -10 8 c-2 -2 -6 -6 -6 -12 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>`;
-      break;
-    case 'braids':
-      hairShape = `
-        <path d="M17 22 c0 -10 7 -16 15 -16 c8 0 15 6 15 16 c0 3 -3 4 -5 2 c-3 -3 -6 -4 -10 -4 c-4 0 -7 1 -10 4 c-2 2 -5 1 -5 -2 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
-        <path d="M15 24 q-3 20 0 40 q4 3 6 -1 q-2 -20 -1 -39 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
-        <path d="M49 24 q3 20 0 40 q-4 3 -6 -1 q2 -20 1 -39 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
-        <path d="M17 30 q11 -6 30 0" fill="none" stroke="${shade(look.hairColor, 0.3)}" stroke-width="1" opacity="0.6"/>`;
-      break;
-    case 'afro':
-      // Volume, not a beanie: the crown is wide, but its lower edge stops at the
-      // hairline. The first version reached y 35 — over the eyes — and every afro read
-      // as the back of someone's head. The side puffs are what break the skull outline.
-      hairShape = `
-        <path d="M17 26 c-1 -11 6 -18 15 -18 c9 0 16 7 15 18 c-4 -4 -9 -6 -15 -6 c-6 0 -11 2 -15 6 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
-        <path d="M17.5 23 c-5 -2.5 -8.5 2.5 -7.4 8 c1 4.4 5.2 5.4 7.2 2 c1.4 -2.2 1.6 -7 0.2 -10 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
-        <path d="M46.5 23 c5 -2.5 8.5 2.5 7.4 8 c-1 4.4 -5.2 5.4 -7.2 2 c-1.4 -2.2 -1.6 -7 -0.2 -10 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
-        <path d="M20 18 c6 -4 18 -4 24 0" fill="none" stroke="${shade(look.hairColor, 0.4)}" stroke-width="1.2" opacity="0.7"/>`;
-      break;
     case 'fade':
       hairShape = `
         <path d="M17 22 c0 -10 7 -16 15 -16 c8 0 15 6 15 16 c0 2 -2 3 -4 2 c-3 -3 -7 -4 -11 -4 c-4 0 -8 1 -11 4 c-2 1 -4 0 -4 -2 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
