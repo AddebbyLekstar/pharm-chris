@@ -65,6 +65,7 @@ const NEUTRAL: CharacterLook = {
   build: 1.0,
   height: 1.0,
   beard: false,
+  beardStyle: 'boxed',
   glasses: false,
   bag: false,
 };

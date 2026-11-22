@@ -67,7 +67,7 @@ costs and what it pays. The renderer never owns a number.
 npm install
 npm run dev        # http://localhost:3030
 npm run build      # tsc + vite build
-npm test           # 151 tests: sim, save, telemetry, arcade integration, camera framing, season proof
+npm test           # 281 tests: sim, save, telemetry, arcade integration, characters, camera framing, season proof
 ```
 
 Useful scripts (all run against the real economy):
@@ -148,6 +148,19 @@ counter and wall bases, and a floor pulled back from near-clipping.
 `node scripts/art-ab.mjs` captures both at 360×800 and 1280×720;
 `node scripts/art-stats.mjs` reports luminance percentiles per version, so a look
 change gets numbers rather than adjectives.
+
+The cast is drawn, not modelled: `src/ui/arcade/kit/charSprite.ts` emits a 64×128 SVG
+figure — painted two-tone shading, ink outline, no draw calls, no texture memory.
+`look.ts` derives every person from their id (skull, jaw, brows, eye gap, mouth,
+cheekbones, age, posture, beard shape, hair mass), so a reload does not reshuffle the
+crowd and the variety can be asserted in tests rather than eyeballed.
+
+- `?art=sprites` renders the crowd as one alpha-tested quad batch from a single atlas
+  (95 draws vs 105 for the rig at two customers). The rig stays the default: a
+  billboard always faces the camera, and a customer walking away from you should not.
+- `node scripts/char-svg-shots.mjs` (with `npx vite --port 5199`) renders the cast at
+  80 px and 190 px; `char-variants.html` does the same for every hairstyle and beard
+  shape side by side — the only way to see all eight at once.
 
 ## Performance target
 

@@ -13,6 +13,7 @@ const CHRIS: CharacterLook = {
   build: 1,
   height: 1,
   beard: false,
+  beardStyle: 'boxed',
   glasses: true,
   bag: false,
   face: { headShape: 'long', eyeSpacing: 'close', browWeight: 'medium', mouth: 'flat', cheek: 'cut', age: 'middle' },

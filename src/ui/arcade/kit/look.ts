@@ -16,8 +16,28 @@ import type { Customer } from '../../../sim/types';
 export const OUTFITS = ['tunic', 'agbada', 'wrapper', 'tee', 'hoodie', 'kaftan'] as const;
 export type OutfitFamily = (typeof OUTFITS)[number];
 
-export const HAIRSTYLES = ['fade', 'lowcut', 'braids', 'headwrap', 'cap', 'bald', 'helmet'] as const;
+export const HAIRSTYLES = [
+  'fade',
+  'lowcut',
+  'braids',
+  'afro',
+  'headwrap',
+  'cap',
+  'bald',
+  'helmet',
+] as const;
 export type Hairstyle = (typeof HAIRSTYLES)[number];
+
+/**
+ * Beard shapes, not a boolean.
+ *
+ * `beard` used to be true/false and the sprite renderer ignored it entirely, so a
+ * third of the men walked around with a jaw that contradicted their data. At 80 px
+ * the *shape* is what reads — a boxed beard squares the jaw, a chin strap draws a
+ * line around it, a goatee leaves the cheeks bare — so the field carries the shape.
+ */
+export const BEARD_STYLES = ['boxed', 'chin', 'goatee'] as const;
+export type BeardStyle = (typeof BEARD_STYLES)[number];
 
 /** Authored headgear that outranks the procedural hairstyle. */
 export const HEADPIECES = ['gele', 'helmet', 'newsboy', 'fula', 'hijab'] as const;
@@ -90,6 +110,8 @@ export interface CharacterLook {
   /** Height multiplier, 0.86–1.12, applied at the hips so feet stay on the floor. */
   height: number;
   beard: boolean;
+  /** Which beard, when `beard` is true. Shape reads at 80 px; the boolean alone did not. */
+  beardStyle: BeardStyle;
   glasses: boolean;
   /** Carries a shoulder bag; grounds a silhouette that is otherwise a box. */
   bag: boolean;
@@ -158,8 +180,8 @@ const HAIR_COLOURS = [0x1b1512, 0x241a14, 0x2e211a] as const;
 
 const WOMAN_OUTFITS: readonly OutfitFamily[] = ['wrapper', 'tunic', 'kaftan', 'wrapper'];
 const MAN_OUTFITS: readonly OutfitFamily[] = ['agbada', 'tee', 'hoodie', 'tunic', 'tee'];
-const WOMAN_HAIR: readonly Hairstyle[] = ['headwrap', 'braids', 'lowcut', 'headwrap'];
-const MAN_HAIR: readonly Hairstyle[] = ['fade', 'lowcut', 'cap', 'bald', 'fade'];
+const WOMAN_HAIR: readonly Hairstyle[] = ['headwrap', 'braids', 'lowcut', 'afro', 'headwrap'];
+const MAN_HAIR: readonly Hairstyle[] = ['fade', 'lowcut', 'cap', 'bald', 'afro', 'fade'];
 
 /**
  * Authored cast. These four have dialogue, a name in the HUD and a recognisable
@@ -181,6 +203,7 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       build: 1.08,
       height: 0.96,
       beard: false,
+      beardStyle: 'boxed',
       glasses: false,
       bag: false,
       // Round face, wide-set eyes, full mouth: the aunty who has fed the street.
@@ -202,6 +225,7 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       build: 0.96,
       height: 1.02,
       beard: false,
+      beardStyle: 'boxed',
       glasses: false,
       bag: true,
       // Long face, close eyes, thin brows: the lean dispatch rider.
@@ -223,6 +247,7 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       build: 1.04,
       height: 0.99,
       beard: true,
+      beardStyle: 'boxed',
       glasses: false,
       bag: false,
       // Square jaw, heavy brow, flat mouth: the newsboy who does not haggle.
@@ -244,6 +269,7 @@ const AUTHORED: Array<{ match: string; look: Partial<CharacterLook> & Pick<Chara
       build: 1.12,
       height: 1.04,
       beard: true,
+      beardStyle: 'chin',
       glasses: false,
       bag: false,
       // Long face under the fula cap, deep-set close eyes, heavy brow, flat mouth.
@@ -334,7 +360,11 @@ function generatedLook(id: string): CharacterLook {
     headpiece: hair === 'headwrap' ? (r() < 0.35 ? 'hijab' : 'gele') : null,
     build: round2(0.86 + r() * 0.34),
     height: round2(0.86 + r() * 0.26),
-    beard: gender === 'man' && hair !== 'bald' && r() < 0.3,
+    beard: gender === 'man' && hair !== 'bald' && r() < 0.34,
+    // The beard is drawn, so the shape is decided here and hashed with the rest of
+    // the person: a boxed jaw on one man, a thin strap on the next, is the cheapest
+    // silhouette break the cast has.
+    beardStyle: weighted<BeardStyle>([['boxed', 0.45], ['chin', 0.3], ['goatee', 0.25]], r()),
     glasses: r() < 0.18,
     bag: r() < 0.3,
     face,
@@ -360,6 +390,7 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
     build: 1.02,
     height: 1.0,
     beard: false,
+    beardStyle: 'boxed',
     glasses: false,
     bag: false,
     face: { headShape: 'square', eyeSpacing: 'close', browWeight: 'medium', mouth: 'flat', cheek: 'cut', age: 'young' },
@@ -377,6 +408,7 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
     build: 0.94,
     height: 0.95,
     beard: false,
+    beardStyle: 'boxed',
     glasses: true,
     bag: false,
     face: { headShape: 'round', eyeSpacing: 'wide', browWeight: 'thin', mouth: 'smile', cheek: 'soft', age: 'middle' },
@@ -394,6 +426,7 @@ const STAFF: Record<'stocker' | 'cashier' | 'cleaner', CharacterLook> = {
     build: 1.06,
     height: 1.03,
     beard: true,
+    beardStyle: 'chin',
     glasses: false,
     bag: false,
     face: { headShape: 'long', eyeSpacing: 'wide', browWeight: 'heavy', mouth: 'flat', cheek: 'cut', age: 'elder' },

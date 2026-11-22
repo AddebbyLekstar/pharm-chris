@@ -114,7 +114,15 @@ export function buildCharacterRig(look: CharacterLook, options: RigOptions = {})
   if (options.faces !== false) buildFace(head, parts, { skin, accent });
   buildHair(look, head, parts, { skin, dark, accent });
   if (look.beard && look.hair !== 'helmet') {
-    part(head, 'beard', box(0.34, 0.16, 0.10), dark, [0, 0.04, 0.19], parts);
+    // The shape was a single rectangle for every bearded man. Three boxes is the
+    // whole vocabulary the rig needs to stop the beards reading as one prop.
+    const beard: Record<typeof look.beardStyle, [number, number, number, number]> = {
+      boxed: [0.34, 0.16, 0.10, 0.04],
+      chin: [0.30, 0.07, 0.09, 0.00],
+      goatee: [0.16, 0.12, 0.10, 0.02],
+    };
+    const [w, h, d, y] = beard[look.beardStyle];
+    part(head, 'beard', box(w, h, d), dark, [0, y, 0.19], parts);
   }
   if (look.glasses) {
     part(head, 'glasses', box(0.40, 0.09, 0.05), accent, [0, 0.285, 0.255], parts);
@@ -265,6 +273,12 @@ function buildHair(
       part(head, 'hair-crown', box(0.48, 0.09, 0.48), m.dark, [0, 0.47, 0], parts);
       part(head, 'braid-left', box(0.10, 0.36, 0.10), m.dark, [-0.24, 0.18, -0.02], parts);
       part(head, 'braid-right', box(0.10, 0.36, 0.10), m.dark, [0.24, 0.18, -0.02], parts);
+      break;
+    case 'afro':
+      // Mass, not a cap: the crown clears the skull on both sides, so the head shape
+      // changes in the dimension that survives a 46 px crowd.
+      part(head, 'hair-afro', box(0.62, 0.34, 0.62), m.dark, [0, 0.42, -0.01], parts);
+      part(head, 'hair-afro-sides', box(0.66, 0.16, 0.58), m.dark, [0, 0.30, -0.01], parts);
       break;
     case 'headwrap':
       part(head, 'headwrap', box(0.62, 0.26, 0.60), m.accent, [0, 0.48, -0.02], parts, [-0.12, 0, 0]);

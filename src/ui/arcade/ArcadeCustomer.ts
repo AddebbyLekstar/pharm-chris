@@ -104,13 +104,16 @@ export class ArcadeCustomer {
    */
   private buildSymptomBubble(): void {
     this.bubbleMesh = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.24, 0),
+      new THREE.OctahedronGeometry(0.2, 0),
       new THREE.MeshBasicMaterial({ color: this.isStoryCustomer ? 0xffd700 : 0x00e676 })
     );
     this.bubbleMesh.name = 'symptom-bubble';
-    // Above the head, not on it. At exactly the head-top the octahedron covers the
-    // face, which on a sprite removes the one thing that makes it a person.
-    this.bubbleMesh.position.set(0, 2.02 * this.look.height + 0.34, 0);
+    // Clear of the hair, not hovering in it. At head-top the octahedron covered the
+    // face; at +0.34 m its lower half still sat inside the hair silhouette and read
+    // as a mint-green hat on eight out of eight customers. The clearance is measured
+    // from the hair top (2.02 x look.height) plus the marker's own half-height, plus a
+    // visible gap, so the marker can never be mistaken for part of the figure.
+    this.bubbleMesh.position.set(0, 2.02 * this.look.height + 0.56, 0);
     this.mesh.add(this.bubbleMesh);
   }
 
@@ -135,7 +138,7 @@ export class ArcadeCustomer {
     // Overhead bubble spin & hover
     if (this.bubbleMesh) {
       this.bubbleMesh.rotation.y += delta * 3;
-      const headTop = 2.02 * this.look.height + 0.34;
+      const headTop = 2.02 * this.look.height + 0.56;
       this.bubbleMesh.position.y = headTop + Math.sin(performance.now() * 0.004) * 0.04;
     }
 

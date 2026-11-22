@@ -8,6 +8,7 @@ import {
   MOUTHS,
   CHEEKS,
   AGES,
+  BEARD_STYLES,
   type CharacterLook,
 } from '../../src/ui/arcade/kit/look';
 import { characterSprite } from '../../src/ui/arcade/kit/charSprite';
@@ -37,7 +38,6 @@ const signature = (look: CharacterLook): string => {
 };
 
 const forty = Array.from({ length: 40 }, (_, i) => `cust_face_${i.toString(36)}`);
-
 /** Every point a path actually visits (endpoints + control points), absolute. */
 function pathPoints(d: string): Array<{ x: number; y: number }> {
   const tokens = d.match(/[MmLlHhVvCcSsQqTtZz]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? [];
@@ -270,7 +270,10 @@ describe('face markup', () => {
   });
 
   it('keeps every generated figure inside the 64 x 128 box, feet on 124', () => {
-    for (const id of [...forty, 'cust_mama_ngozi', 'cust_emeka', 'cust_bayo', 'cust_danjuma']) {
+    // 160 ids, not 40: the wide hairstyles (afro) and the beards are new geometry and
+    // the tallest/fullest combination is what overflows a box.
+    const crowd = [...forty, ...Array.from({ length: 120 }, (_, i) => `cust_bounds_${i}`)];
+    for (const id of [...crowd, 'cust_mama_ngozi', 'cust_emeka', 'cust_bayo', 'cust_danjuma']) {
       const svg = characterSprite(customerLook(data(id))).svg;
       expect(svg).toContain('viewBox="0 0 64 128"');
 
@@ -302,6 +305,93 @@ describe('face markup', () => {
       expect(maxY, `${id} sinks through the floor`).toBeLessThanOrEqual(128);
       // Shoes are authored on the floor line, so the standing height is exact.
       expect(Math.abs(maxY - 124), `${id} floats or sinks`).toBeLessThanOrEqual(0.05);
+    }
+  });
+});
+
+describe('silhouette: beard, bag and hair mass', () => {
+  const base = (): CharacterLook => customerLook(data('cust_silhouette'));
+
+  const hairPoints = (svg: string): Array<{ x: number; y: number }> => {
+    const start = svg.indexOf('data-part="hair"');
+    expect(start, 'no hair group in the sprite').toBeGreaterThan(-1);
+    const end = svg.indexOf('</g>', start);
+    const block = svg.slice(start, end);
+    const ds = [...block.matchAll(/\sd="([^"]+)"/g)].map((m) => m[1]);
+    expect(ds.length).toBeGreaterThan(0);
+    return ds.flatMap(pathPoints);
+  };
+
+  it('draws a beard only when the look has one, in three different shapes', () => {
+    const bare = characterSprite({ ...base(), beard: false }).svg;
+    expect(bare).not.toContain('data-part="beard"');
+
+    const shapes = BEARD_STYLES.map((beardStyle) =>
+      characterSprite({ ...base(), beard: true, beardStyle }).svg,
+    );
+    const marks = shapes.map((svg) => attr(svg, 'beard', 'data-beard'));
+    expect(marks).toEqual(['boxed', 'chin', 'goatee']);
+    // Three shapes, not three tints of one path.
+    const outlines = shapes.map((svg) => {
+      const at = svg.indexOf('data-part="beard"');
+      return svg.slice(at, svg.indexOf('</g>', at)).replace(/#[0-9a-f]{6}/gi, '');
+    });
+    expect(new Set(outlines).size).toBe(3);
+  });
+
+  it('keeps the mouth readable on top of a beard', () => {
+    const bearded = characterSprite({ ...base(), beard: true, beardStyle: 'boxed' }).svg;
+    const beardAt = bearded.indexOf('data-part="beard"');
+    const mouthAt = bearded.indexOf('data-part="mouth"');
+    expect(beardAt).toBeGreaterThan(-1);
+    expect(mouthAt).toBeGreaterThan(beardAt);
+  });
+
+  it('hangs a shoulder bag only when the look carries one', () => {
+    const without = characterSprite({ ...base(), bag: false }).svg;
+    expect(without).not.toContain('data-part="bag-strap"');
+
+    const withBag = characterSprite({ ...base(), bag: true }).svg;
+    expect(attr(withBag, 'bag-strap', 'd')).not.toBeNull();
+    // The strap crosses the body, so it breaks the outline the torso would keep.
+    const points = pathPoints(attr(withBag, 'bag-strap', 'd')!);
+    expect(Math.min(...points.map((p) => p.x))).toBeLessThan(24);
+    expect(Math.max(...points.map((p) => p.x))).toBeGreaterThan(40);
+  });
+
+  it('gives the afro more width than the skull and the braids a length', () => {
+    const headMetricsRx = 15.8;
+    const afro = hairPoints(
+      characterSprite({ ...base(), hair: 'afro', headpiece: null }).svg,
+    );
+    const fade = hairPoints(
+      characterSprite({ ...base(), hair: 'fade', headpiece: null }).svg,
+    );
+    const spread = Math.max(...afro.map((p) => Math.abs(p.x - 32)));
+    const tight = Math.max(...fade.map((p) => Math.abs(p.x - 32)));
+    expect(spread).toBeGreaterThan(headMetricsRx);
+    expect(spread).toBeGreaterThan(tight + 3);
+
+    const braided = hairPoints(
+      characterSprite({ ...base(), hair: 'braids', headpiece: null }).svg,
+    );
+    expect(Math.max(...braided.map((p) => p.y))).toBeGreaterThan(55);
+  });
+
+  it('draws every hairstyle without throwing and without leaving the box', () => {
+    for (const hair of ['fade', 'lowcut', 'braids', 'afro', 'headwrap', 'cap', 'bald', 'helmet'] as const) {
+      const svg = characterSprite({ ...base(), hair, headpiece: null, build: 1.2, height: 1.12 }).svg;
+      expect(svg).toContain('data-part="hair"');
+      const scale = svg.match(/scale\(([\d.]+) ([\d.]+)\)/)!;
+      const sx = Number(scale[1]);
+      const sy = Number(scale[2]);
+      for (const point of hairPoints(svg)) {
+        const x = 32 + (point.x - 32) * sx;
+        const y = 124 + (point.y - 124) * sy;
+        expect(x, `${hair} overflows left`).toBeGreaterThanOrEqual(0);
+        expect(x, `${hair} overflows right`).toBeLessThanOrEqual(64);
+        expect(y, `${hair} overflows the top`).toBeGreaterThanOrEqual(0);
+      }
     }
   });
 });

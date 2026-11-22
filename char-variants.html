@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pharm Chris — art variants</title>
+    <style>
+      body { margin: 0; background: #2b2622; font-family: ui-sans-serif, system-ui, sans-serif; color: #f4ece0; }
+      h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; margin: 22px 24px 8px; }
+      .floor { background: linear-gradient(#c9b79b, #b8a586); border-radius: 12px; margin: 0 24px 18px; }
+      .strip { display: flex; gap: 10px; align-items: flex-end; padding: 14px 18px 10px; }
+      .cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .cap { font-size: 10px; opacity: .55; letter-spacing: .06em; }
+    </style>
+  </head>
+  <body>
+    <h2>Hairstyles, 150 px</h2>
+    <div class="floor"><div class="strip" id="hair"></div></div>
+    <h2>Beard shapes, 150 px</h2>
+    <div class="floor"><div class="strip" id="beards"></div></div>
+    <script type="module" src="/scripts/char-variants.ts"></script>
+  </body>
+</html>

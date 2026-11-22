@@ -119,6 +119,76 @@ function cheekShadow(m: HeadMetrics): string {
 }
 
 
+/**
+ * The beard, drawn rather than implied.
+ *
+ * `look.beard` shipped in the data and was honoured by the rig as a rectangle; the
+ * SVG renderer ignored it, so a third of the men had a jaw their data contradicted.
+ * Shape is the whole reading at 80 px: boxed fills the jaw, a chin strap draws a
+ * line around it, a goatee leaves the cheeks bare. Elders grey out — one mix, no
+ * extra texture, and it separates the old men from the young at a glance.
+ */
+function beardPaths(look: CharacterLook, m: HeadMetrics, eyeY: number, mouthY: number): string {
+  if (!look.beard) return '';
+  // Value, not just hue. Skin here is #3b200f and hair #1b1512 — a beard drawn in the
+  // hair colour is a 6 px shape at 80 px with almost no luminance step, and it vanished
+  // in the crowd. Half a step toward warm grey keeps it natural and makes it read.
+  const base =
+    look.face.age === 'elder'
+      ? mix(look.hairColor, 0xd8cdb8, 0.62)
+      : mix(look.hairColor, 0x7a6a56, 0.5);
+  const colour = hex(base);
+  const jaw = m.w * m.jaw;
+  const chin = m.chin;
+  // A lit rim, not an ink line: against dark skin an ink outline is the same value as
+  // the beard, and the whole shape disappears. The rim is the beard's own colour
+  // lifted a third, so it separates without looking drawn-on.
+  const rim = lighten(base, 0.35);
+  const mirror = (d: string): string =>
+    `<path d="${d}" fill="${colour}" stroke="${rim}" stroke-width="1.1" stroke-linejoin="round"/>`;
+
+  const moustache = `<path data-part="moustache" d="M${num(32 - 5.4)} ${num(mouthY - 3.2)} q5.4 -2.6 10.8 0 q-2.2 2.3 -5.4 2.1 q-3.2 0.2 -5.4 -2.1 z" fill="${colour}" stroke="${INK}" stroke-width="0.8" stroke-linejoin="round"/>`;
+
+  if (look.beardStyle === 'chin') {
+    // A band along the jawline, not a filled face: the cheeks stay bare.
+    return `<g data-part="beard" data-beard="chin">
+      <path d="M${num(32 - jaw * 1.02)} ${num(eyeY + 4.6)} C ${num(32 - jaw * 1.12)} ${num(chin - 7)}, ${num(32 - jaw * 0.62)} ${num(chin + 1.4)}, 32 ${num(chin + 1.8)} C ${num(32 + jaw * 0.62)} ${num(chin + 1.4)}, ${num(32 + jaw * 1.12)} ${num(chin - 7)}, ${num(32 + jaw * 1.02)} ${num(eyeY + 4.6)}" fill="none" stroke="${colour}" stroke-width="3.4" stroke-linecap="round"/>
+      ${moustache}
+    </g>`;
+  }
+
+  if (look.beardStyle === 'goatee') {
+    return `<g data-part="beard" data-beard="goatee">
+      ${mirror(
+        `M${num(32 - 3.6)} ${num(chin - 9.4)} q3.6 -2 7.2 0 q1.8 4.8 -0.6 8.8 q-3 2.8 -6 0 q-2.4 -4 -0.6 -8.8 Z`,
+      )}
+      ${moustache}
+    </g>`;
+  }
+
+  // Boxed: a filled horseshoe from temple to temple, with the mouth left proud.
+  // Three strands in the darker base tone are what stop a flat fill reading as a mask.
+  return `<g data-part="beard" data-beard="boxed">
+    ${mirror(
+      `M${num(32 - jaw * 1.06)} ${num(eyeY + 4)} C ${num(32 - jaw * 1.2)} ${num(chin - 9)}, ${num(32 - jaw * 0.92)} ${num(chin + 1)}, ${num(32 - jaw * 0.42)} ${num(chin + 1.6)} Q 32 ${num(chin + 2.2)} ${num(32 + jaw * 0.42)} ${num(chin + 1.6)} C ${num(32 + jaw * 0.92)} ${num(chin + 1)}, ${num(32 + jaw * 1.2)} ${num(chin - 9)}, ${num(32 + jaw * 1.06)} ${num(eyeY + 4)} C ${num(32 + jaw * 0.72)} ${num(eyeY + 8.6)}, ${num(32 - jaw * 0.72)} ${num(eyeY + 8.6)}, ${num(32 - jaw * 1.06)} ${num(eyeY + 4)} Z`,
+    )}
+    <path d="M${num(28.4)} ${num(mouthY + 1.6)} q-0.6 3 ${num(0.4)} 5 M32 ${num(mouthY + 1.2)} q0.4 3.4 0 5.6 M${num(35.6)} ${num(mouthY + 1.6)} q0.6 3 ${num(-0.4)} 5" fill="none" stroke="${shade(base, 0.45)}" stroke-width="0.9" stroke-linecap="round" opacity="0.75"/>
+    ${moustache}
+  </g>`;
+}
+
+/** The shoulder bag: a diagonal strap and a body at the hip, breaking the box. */
+function shoulderBag(accent: number): string {
+  const strap = shade(accent, 0.25);
+  return `
+    <g data-part="bag">
+      <path data-part="bag-strap" d="M44 49 L20 86" stroke="${strap}" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+      <path d="M7.5 84.5 h12.5 c1.8 0 2.8 1 2.8 2.8 v13 c0 1.8 -1 2.8 -2.8 2.8 h-12.5 c-1.8 0 -2.8 -1 -2.8 -2.8 v-13 c0 -1.8 1 -2.8 2.8 -2.8 z" fill="${hex(accent)}" stroke="${INK}" stroke-width="1.3"/>
+      <path d="M12.5 84.5 v-3.6 h4.6 v3.6" fill="none" stroke="${INK}" stroke-width="1.2"/>
+      <path d="M8 91.5 h12" stroke="${strap}" stroke-width="1.2" opacity="0.9"/>
+    </g>`;
+}
+
 /** Torso + hips, per outfit family. All coordinates sit inside the 64 x 128 box. */
 function torsoPaths(outfit: CharacterLook['outfit'], top: number, bottom: number): string {
   const topFill = hex(top);
@@ -283,9 +353,15 @@ function head(look: CharacterLook): string {
       </g>`
     : '';
 
+  const beard = beardPaths(look, m, eyeY, mouthY);
+  const lips = look.beard
+    ? `<ellipse cx="${num(mouthX)}" cy="${num(mouthY)}" rx="${num(mouthW * 0.66)}" ry="2.9" fill="${hex(lip)}" stroke="${INK}" stroke-width="0.7" opacity="0.95"/>`
+    : '';
+
   const face = `
     <path data-part="head" d="${headOutline(m)}" fill="${skin}" stroke="${INK}" stroke-width="1.5"/>
     <path d="${cheekShadow(m)}" fill="${skinDark}" opacity="0.45"/>
+    ${beard}
     <ellipse data-part="eye-left" cx="${num(leftEye)}" cy="${num(eyeY)}" rx="${num(eyeR)}" ry="${num(eyeRy)}" fill="${WHITE}" stroke="${INK}" stroke-width="0.9"/>
     <ellipse data-part="eye-right" cx="${num(rightEye)}" cy="${num(eyeY)}" rx="${num(eyeR)}" ry="${num(eyeRy)}" fill="${WHITE}" stroke="${INK}" stroke-width="0.9"/>
     <circle cx="${num(leftEye + 0.5)}" cy="${num(eyeY + 0.3)}" r="1.7" fill="${INK}"/>
@@ -296,6 +372,7 @@ function head(look: CharacterLook): string {
     <path data-part="brow-right" d="M${num(rightEye - 3.7)} ${num(browY)} q3.9 ${num(browArch)} 7.6 0" fill="none" stroke="${INK}" stroke-width="${browW}" stroke-linecap="round"/>
     <path data-part="nose" d="M${num(32.8)} ${num(eyeY + 2.6)} q0.3 ${num(f.age === 'elder' ? 4 : 3.4)} -1.6 ${num(f.age === 'elder' ? 5 : 4.4)}" fill="none" stroke="${INK}" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
     ${ageMarks}
+    ${lips}
     ${mouth}
     ${cheekCut}
     ${glasses}
@@ -305,9 +382,12 @@ function head(look: CharacterLook): string {
   switch (look.headpiece ?? look.hair) {
     case 'gele':
     case 'headwrap':
+      // The crown was authored with its peak 4 units above the top of the box, which
+      // the tallest build then pushed off screen. A flatter dome keeps the wrap's
+      // width without needing a transform the bounds check cannot see.
       hairShape = `
-        <path d="M17 20 c-2 -9 5 -16 15 -16 c10 0 17 7 15 16 c-1 5 -6 3 -15 3 c-9 0 -14 2 -15 -3 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
-        <path d="M20 12 c6 -5 18 -5 24 0" fill="none" stroke="${shade(look.accent, 0.25)}" stroke-width="1.6"/>`;
+        <path d="M17 20 c-2 -7 5 -12 15 -12 c10 0 17 5 15 12 c-1 5 -6 3 -15 3 c-9 0 -14 2 -15 -3 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
+        <path d="M20 13 c6 -4 18 -4 24 0" fill="none" stroke="${shade(look.accent, 0.25)}" stroke-width="1.6"/>`;
       break;
     case 'helmet':
       hairShape = `
@@ -331,12 +411,67 @@ function head(look: CharacterLook): string {
     case 'braids':
       hairShape = `
         <path d="M17 22 c0 -10 7 -16 15 -16 c8 0 15 6 15 16 c0 3 -3 4 -5 2 c-3 -3 -6 -4 -10 -4 c-4 0 -7 1 -10 4 c-2 2 -5 1 -5 -2 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
-        <path d="M15 26 q-3 8 1 12 q3 -4 2 -12 z" fill="${hair}" stroke="${INK}" stroke-width="1.1"/>
-        <path d="M49 26 q3 8 -1 12 q-3 -4 -2 -12 z" fill="${hair}" stroke="${INK}" stroke-width="1.1"/>`;
+        <path d="M15 24 q-3 20 0 40 q4 3 6 -1 q-2 -20 -1 -39 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
+        <path d="M49 24 q3 20 0 40 q-4 3 -6 -1 q2 -20 1 -39 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
+        <path d="M17 30 q11 -6 30 0" fill="none" stroke="${shade(look.hairColor, 0.3)}" stroke-width="1" opacity="0.6"/>`;
+      break;
+    case 'afro':
+      // One wide horseshoe, not a cap with buns: the mass has to clear the skull at
+      // the temples, because there is only 3 units of headroom above a head this
+      // large. The inner edge stops at the forehead so the eyes and brows stay clear.
+      hairShape = `
+        <path d="M16 34 C 9 30, 8 18, 15 12 C 19 8.4, 26 7.2, 32 7.2 C 38 7.2, 45 8.4, 49 12 C 56 18, 55 30, 48 34 C 46 30, 45 26, 44 22 C 40 19, 36 18, 32 18 C 28 18, 24 19, 20 22 C 19 26, 18 30, 16 34 Z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
+        <path d="M20 17 c4 -3 8 -4 12 -4 c4 0 8 1 12 4" fill="none" stroke="${shade(look.hairColor, 0.4)}" stroke-width="1.2" opacity="0.7"/>`;
+      break;
+    case 'headwrap':
+      // The crown was authored with its peak 4 units above the top of the box, which
+      // the tallest build then pushed off screen. A flatter dome keeps the wrap's
+      // width without needing a transform the bounds check cannot see.
+      hairShape = `
+        <path d="M17 20 c-2 -7 5 -12 15 -12 c10 0 17 5 15 12 c-1 5 -6 3 -15 3 c-9 0 -14 2 -15 -3 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
+        <path d="M20 13 c6 -4 18 -4 24 0" fill="none" stroke="${shade(look.accent, 0.25)}" stroke-width="1.6"/>`;
+      break;
+    case 'helmet':
+      hairShape = `
+        <path d="M16 22 c0 -10 7 -16 16 -16 c9 0 16 6 16 16 c0 3 -4 4 -6 2 c-3 -3 -7 -4 -10 -4 c-4 0 -8 1 -11 4 c-2 2 -5 1 -5 -2 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
+        <path d="M19 17 q13 -8 26 1" fill="none" stroke="${WHITE}" stroke-width="1.4" opacity="0.7"/>`;
+      break;
+    case 'cap':
+      hairShape = `
+        <path d="M17 21 c0 -9 7 -15 15 -15 c8 0 15 6 15 15 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>
+        <path d="M47 21 q6 1 6 4 h-14 q5 -1 8 -4 z" fill="${shade(look.accent, 0.2)}" stroke="${INK}" stroke-width="1.2"/>`;
+      break;
+    case 'fula':
+      hairShape = `
+        <path d="M19 20 c0 -8 6 -13 13 -13 c7 0 13 5 13 13 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
+        <path d="M19 19 h26" stroke="${accent}" stroke-width="2"/>`;
+      break;
+    case 'hijab':
+      hairShape = `
+        <path d="M16 30 c-1 -12 6 -20 16 -20 c10 0 17 8 16 20 c0 6 -4 10 -6 12 c-3 -6 -6 -8 -10 -8 c-4 0 -7 2 -10 8 c-2 -2 -6 -6 -6 -12 z" fill="${accent}" stroke="${INK}" stroke-width="1.4"/>`;
+      break;
+    case 'braids':
+      hairShape = `
+        <path d="M17 22 c0 -10 7 -16 15 -16 c8 0 15 6 15 16 c0 3 -3 4 -5 2 c-3 -3 -6 -4 -10 -4 c-4 0 -7 1 -10 4 c-2 2 -5 1 -5 -2 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
+        <path d="M15 24 q-3 20 0 40 q4 3 6 -1 q-2 -20 -1 -39 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
+        <path d="M49 24 q3 20 0 40 q-4 3 -6 -1 q2 -20 1 -39 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
+        <path d="M17 30 q11 -6 30 0" fill="none" stroke="${shade(look.hairColor, 0.3)}" stroke-width="1" opacity="0.6"/>`;
+      break;
+    case 'afro':
+      // Volume, not a beanie: the crown is wide, but its lower edge stops at the
+      // hairline. The first version reached y 35 — over the eyes — and every afro read
+      // as the back of someone's head. The side puffs are what break the skull outline.
+      hairShape = `
+        <path d="M17 26 c-1 -11 6 -18 15 -18 c9 0 16 7 15 18 c-4 -4 -9 -6 -15 -6 c-6 0 -11 2 -15 6 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
+        <path d="M17.5 23 c-5 -2.5 -8.5 2.5 -7.4 8 c1 4.4 5.2 5.4 7.2 2 c1.4 -2.2 1.6 -7 0.2 -10 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
+        <path d="M46.5 23 c5 -2.5 8.5 2.5 7.4 8 c-1 4.4 -5.2 5.4 -7.2 2 c-1.4 -2.2 -1.6 -7 -0.2 -10 z" fill="${hair}" stroke="${INK}" stroke-width="1.2"/>
+        <path d="M20 18 c6 -4 18 -4 24 0" fill="none" stroke="${shade(look.hairColor, 0.4)}" stroke-width="1.2" opacity="0.7"/>`;
       break;
     case 'fade':
       hairShape = `
-        <path d="M17 22 c0 -10 7 -16 15 -16 c8 0 15 6 15 16 c0 2 -2 3 -4 2 c-3 -3 -7 -4 -11 -4 c-4 0 -8 1 -11 4 c-2 1 -4 0 -4 -2 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>`;
+        <path d="M17 22 c0 -10 7 -16 15 -16 c8 0 15 6 15 16 c0 2 -2 3 -4 2 c-3 -3 -7 -4 -11 -4 c-4 0 -8 1 -11 4 c-2 1 -4 0 -4 -2 z" fill="${hair}" stroke="${INK}" stroke-width="1.3"/>
+        <path d="M17.5 20 q-1.6 6 0.4 10 q2.2 0.6 2.4 -1.6 q-1.4 -4 -0.6 -8 z" fill="${hair}" opacity="0.9"/>
+        <path d="M46.5 20 q1.6 6 -0.4 10 q-2.2 0.6 -2.4 -1.6 q1.4 -4 0.6 -8 z" fill="${hair}" opacity="0.9"/>`;
       break;
     case 'lowcut':
       hairShape = `
@@ -385,6 +520,7 @@ export function characterSprite(look: CharacterLook, options: SpriteOptions = {}
   const lean = look.posture.shoulderTilt;
   const upper = `
     ${torsoPaths(look.outfit, look.top, look.bottom)}
+    ${look.bag ? shoulderBag(look.accent) : ''}
     ${arms(look.outfit, look.top, look.skin, look.posture.armOut)}
     ${headMarkup}
   `;

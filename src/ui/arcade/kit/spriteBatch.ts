@@ -48,9 +48,6 @@ export function customerArtMode(): CustomerArtMode {
 export const ATLAS_CELL_W = 128;
 export const ATLAS_CELL_H = 256;
 export const ATLAS_COLUMNS = 8;
-/** Enough for the authored roster plus a day-rush featured queue, capped so a
- *  synthetic id can never grow the texture without bound. */
-export const ATLAS_MAX_LOOKS = 16;
 
 /**
  * Fixed row count, allocated up front.
@@ -62,6 +59,16 @@ export const ATLAS_MAX_LOOKS = 16;
  * painted.
  */
 export const ATLAS_ROWS = 4;
+
+/**
+ * The grid is the budget: 32 cells, not an arbitrary 16.
+ *
+ * The old cap was half the texture and overflow silently returned cell 0, so the
+ * seventeenth distinct person in a rush was drawn as the first — a queue of clones
+ * with different names. Preloading the roster and holding a full queue is well
+ * inside 32, so nothing is reused until every cell is genuinely taken.
+ */
+export const ATLAS_MAX_LOOKS = ATLAS_COLUMNS * ATLAS_ROWS;
 
 /** The SVG's feet sit on y = 124 of a 128-tall box. */
 const ART_BOX_H = 128;
@@ -96,9 +103,21 @@ export function lookKey(look: CharacterLook): string {
     look.headpiece ?? '-',
     look.build,
     look.height,
-    look.beard ? 1 : 0,
+    look.beard ? look.beardStyle : '-',
     look.glasses ? 1 : 0,
     look.bag ? 1 : 0,
+    // The face and the stance are drawn, so they are part of the identity. Omitting
+    // them let two customers who differed only in jaw, brows or lean share one cell —
+    // which silently undid the individual-faces pass in sprite mode.
+    look.face.headShape,
+    look.face.eyeSpacing,
+    look.face.browWeight,
+    look.face.mouth,
+    look.face.cheek,
+    look.face.age,
+    look.posture.shoulderTilt,
+    look.posture.headTilt,
+    look.posture.armOut,
   ].join('|');
 }
 

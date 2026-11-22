@@ -8,6 +8,9 @@ import { customerLook } from '../../src/ui/arcade/kit/look';
 import {
   ATLAS_CELL_H,
   ATLAS_CELL_W,
+  ATLAS_COLUMNS,
+  ATLAS_MAX_LOOKS,
+  ATLAS_ROWS,
   SPRITE_WORLD_HEIGHT,
   SpriteBatch,
   lookKey,
@@ -205,6 +208,34 @@ describe('sprite batch', () => {
     expect(queue.sprites!.meshCount).toBeLessThanOrEqual(2);
     // The rig path is untouched: still six queue slots and normal movement.
     expect(queue.getFrontCustomer()?.state).toBe('walking');
+  });
+});
+
+describe('atlas identity', () => {
+  const baseLook = (): ReturnType<typeof customerLook> => customerLook({ id: 'cust_identity' } as never);
+
+  it('treats face and stance as part of the person, not as decoration', () => {
+    const base = baseLook();
+    const other = { ...base, face: { ...base.face, mouth: 'flat' as const } };
+    const leaning = { ...base, posture: { ...base.posture, headTilt: base.posture.headTilt + 2 } };
+
+    expect(lookKey(other)).not.toBe(lookKey(base));
+    expect(lookKey(leaning)).not.toBe(lookKey(base));
+    expect(lookKey({ ...base })).toBe(lookKey(base));
+    // Beard shape and bag are drawn, so they key too.
+    expect(lookKey({ ...base, beard: true, beardStyle: 'boxed' })).not.toBe(
+      lookKey({ ...base, beard: true, beardStyle: 'goatee' }),
+    );
+    expect(lookKey({ ...base, bag: true })).not.toBe(lookKey({ ...base, bag: false }));
+  });
+
+  it('never reuses a cell while the grid still has one', () => {
+    expect(ATLAS_MAX_LOOKS).toBe(ATLAS_COLUMNS * ATLAS_ROWS);
+    const batch = new SpriteBatch(ATLAS_MAX_LOOKS);
+    const ids = Array.from({ length: 20 }, (_, i) => `cust_unique_${i}`);
+    batch.sync(customersFor(ids));
+    expect(batch.atlas.cellCount).toBe(20);
+    expect(new Set(batch.atlas.cells.map((c) => c.key)).size).toBe(20);
   });
 });
 
