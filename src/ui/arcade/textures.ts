@@ -134,21 +134,26 @@ export function terrazzoRoughness(): THREE.CanvasTexture {
 
 /** Emulsion paint: fine roller mottle, faint brush streaks, no visible tiling. */
 export function paintedWall(tint = '#22493d'): THREE.CanvasTexture {
-  const { canvas, ctx } = sheet(TEXTURE_SIZE);
+  // 256, not 512: this map now only dresses the street and the curb (the shop
+  // walls are flat plaster per the v4 note in ArcadeScene). At grazing angle the
+  // roller mottle is indistinguishable, and the 512 sheet cost 1 MB per texture
+  // slot for a field of low-frequency noise.
+  const size = 256;
+  const { canvas, ctx } = sheet(size);
   const rand = mulberry32(0x22cc31);
   ctx.fillStyle = tint;
-  ctx.fillRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+  ctx.fillRect(0, 0, size, size);
 
-  for (let i = 0; i < 90; i++) {
-    const y = rand() * TEXTURE_SIZE;
-    const h = 2 + rand() * 26;
+  for (let i = 0; i < 45; i++) {
+    const y = rand() * size;
+    const h = 1 + rand() * 13;
     ctx.fillStyle = `rgba(255,255,255,${0.012 + rand() * 0.022})`;
-    ctx.fillRect(0, y, TEXTURE_SIZE, h);
+    ctx.fillRect(0, y, size, h);
   }
-  for (let i = 0; i < 900; i++) {
-    const x = rand() * TEXTURE_SIZE;
-    const y = rand() * TEXTURE_SIZE;
-    const r = 3 + rand() * 22;
+  for (let i = 0; i < 450; i++) {
+    const x = rand() * size;
+    const y = rand() * size;
+    const r = 1.5 + rand() * 11;
     ctx.fillStyle = rand() > 0.5 ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.03)';
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -569,47 +574,103 @@ export function posterAtlas(): THREE.CanvasTexture {
   return texture;
 }
 
-export function signage(text: string, background: string, ink = '#ffffff'): THREE.CanvasTexture {
-  const { canvas, ctx } = sheet(512);
-  ctx.fillStyle = background;
-  ctx.fillRect(0, 0, 512, 512);
-  // Subtle vertical sheen so the plate is not a flat rectangle of colour.
-  const grad = ctx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, 'rgba(255,255,255,0.18)');
-  grad.addColorStop(0.5, 'rgba(255,255,255,0.02)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.22)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 512, 512);
+/**
+ * Bay-label atlas: four labels on one 1024 x 64 sheet, cells addressed by UV.
+ *
+ * Each bay used to call `signage()` and own a 512 x 512 canvas: 4 MB of the boot
+ * for four lines of type, and the square sheet was then stretched across a
+ * 1.46 x 0.28 m plate — letters five times wider than they were drawn. Cells at
+ * the plate's own aspect (4:1) cost a quarter of the memory and put the type back
+ * at its intended width.
+ */
+export const SHELF_LABEL_ATLAS = { width: 1024, height: 64, cols: 4, rows: 1, cellW: 256, cellH: 64 } as const;
 
-  ctx.fillStyle = ink;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const words = text.toUpperCase().split(' ');
-  const lines: string[] = [];
-  let line = '';
-  for (const word of words) {
-    const next = line ? `${line} ${word}` : word;
-    if (ctx.measureText(next).width > 440 && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
+/** UV rectangle of a label cell, in three.js's bottom-left texture space. */
+export function shelfLabelUV(cell: number): { u0: number; v0: number; u1: number; v1: number } {
+  const { width, height, cellW, cellH, cols, rows } = SHELF_LABEL_ATLAS;
+  const col = cell % cols;
+  const row = Math.floor(cell / cols) % rows;
+  return {
+    u0: (col * cellW) / width,
+    u1: ((col + 1) * cellW) / width,
+    v0: 1 - ((row + 1) * cellH) / height,
+    v1: 1 - (row * cellH) / height,
+  };
+}
+
+export interface LabelSpec {
+  text: string;
+  background: string;
+  ink?: string;
+}
+
+let labelAtlasCache: THREE.CanvasTexture | null = null;
+
+export function shelfLabelAtlas(labels: ReadonlyArray<LabelSpec>): THREE.CanvasTexture {
+  if (labelAtlasCache) return labelAtlasCache;
+  const { width, height, cellW, cellH, cols } = SHELF_LABEL_ATLAS;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D canvas context unavailable; label atlas cannot be built');
+
+  const font = (size: number): string => `700 ${size}px "Segoe UI", system-ui, sans-serif`;
+
+  labels.slice(0, cols).forEach((label, i) => {
+    const ox = (i % cols) * cellW;
+    const oy = Math.floor(i / cols) * cellH;
+
+    ctx.fillStyle = label.background;
+    ctx.fillRect(ox, oy, cellW, cellH);
+    const grad = ctx.createLinearGradient(0, oy, 0, oy + cellH);
+    grad.addColorStop(0, 'rgba(255,255,255,0.18)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.02)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.22)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(ox, oy, cellW, cellH);
+
+    const ink = label.ink ?? '#ffffff';
+    const words = label.text.toUpperCase().split(' ').filter(Boolean);
+    const maxWidth = cellW - 18;
+
+    let placed: string[] = [];
+    let size = 26;
+    for (; size >= 12; size -= 2) {
+      ctx.font = font(size);
+      const lines: string[] = [];
+      let line = '';
+      for (const word of words) {
+        const next = line ? `${line} ${word}` : word;
+        if (ctx.measureText(next).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = next;
+        }
+      }
+      if (line) lines.push(line);
+      if (lines.length <= 2) {
+        placed = lines;
+        break;
+      }
     }
-  }
-  if (line) lines.push(line);
 
-  let size = 96;
-  ctx.font = `700 ${size}px "Segoe UI", system-ui, sans-serif`;
-  let widest = 0;
-  for (const l of lines) widest = Math.max(widest, ctx.measureText(l).width);
-  if (widest > 420) size = Math.max(34, Math.floor(size * (420 / widest)));
-  ctx.font = `700 ${size}px "Segoe UI", system-ui, sans-serif`;
+    ctx.fillStyle = ink;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(size);
+    const lineHeight = size * 1.12;
+    const startY = oy + cellH / 2 - ((placed.length - 1) * lineHeight) / 2;
+    placed.forEach((l, n) => ctx.fillText(l, ox + cellW / 2, startY + n * lineHeight, maxWidth));
+  });
 
-  const lineHeight = size * 1.12;
-  const startY = 256 - ((lines.length - 1) * lineHeight) / 2;
-  lines.forEach((l, i) => ctx.fillText(l, 256, startY + i * lineHeight));
-
-  return finish(canvas, 1, 1);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  labelAtlasCache = texture;
+  return texture;
 }
 
 /**
@@ -756,7 +817,7 @@ export const TEXTURE_MANIFEST: ReadonlyArray<{ name: string; width: number; heig
   { name: 'ground-fade', width: 4, height: 256 },
   { name: 'medicine-atlas', width: 512, height: 512 },
   { name: 'poster-atlas', width: POSTER_ATLAS.width, height: POSTER_ATLAS.height },
-  { name: 'shelf-label', width: 512, height: 512, count: 4 },
+  { name: 'shelf-label-atlas', width: SHELF_LABEL_ATLAS.width, height: SHELF_LABEL_ATLAS.height },
 ];
 
 /** Base-level RGBA bytes, the same accounting as scripts/perf-probe.mjs. */
@@ -804,6 +865,10 @@ export function disposeTextures(): void {
   if (posterAtlasCache) {
     posterAtlasCache.dispose();
     posterAtlasCache = null;
+  }
+  if (labelAtlasCache) {
+    labelAtlasCache.dispose();
+    labelAtlasCache = null;
   }
   if (!cache) return;
   for (const value of Object.values(cache)) {

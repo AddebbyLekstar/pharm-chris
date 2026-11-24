@@ -1,11 +1,12 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { SHELF_BAYS } from './layout';
 import { chamferBox } from './kit/geometry';
 import { material } from './kit/materials';
 import { mergeRig } from './mergeMeshes';
 import { Product } from '../../sim/types';
 import { artVersion } from './art';
-import { textures, signage, medicineAtlas } from './textures';
+import { textures, shelfLabelAtlas, shelfLabelUV, medicineAtlas } from './textures';
 
 export function normalizeCategory(cat: string): string {
   const c = (cat || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -76,6 +77,23 @@ export class PharmacyShelves3D {
       roughness: 0.6,
     });
 
+    // One atlas and one material for all four bay labels: per-bay canvases were
+    // 4 MB of the boot and four separate texture binds for four lines of type.
+    const labelAtlas = surf
+      ? shelfLabelAtlas(this.shelfConfigs.map((c) => ({ text: c.label, background: c.color })))
+      : null;
+    const labelMat = labelAtlas
+      ? new THREE.MeshStandardMaterial({
+          map: labelAtlas,
+          emissiveMap: labelAtlas,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.18,
+          roughness: 0.42,
+          metalness: 0,
+        })
+      : null;
+
+    const labelGeos: THREE.BufferGeometry[] = [];
     for (const conf of this.shelfConfigs) {
       const shelfBay = new THREE.Group();
       shelfBay.position.copy(conf.position);
@@ -131,19 +149,21 @@ export class PharmacyShelves3D {
       plate.position.set(0, 2.72, facing * 0.45);
       shelfBay.add(plate);
 
-      if (surf) {
-        const face = new THREE.Mesh(
-          new THREE.PlaneGeometry(1.46, 0.28),
-          new THREE.MeshStandardMaterial({
-            map: signage(conf.label, conf.color),
-            roughness: 0.42,
-            metalness: 0.0,
-            emissive: new THREE.Color(conf.color).multiplyScalar(0.18),
-          })
-        );
-        face.position.set(0, 2.72, facing * (0.45 + 0.079));
-        if (facing < 0) face.rotation.y = Math.PI;
-        shelfBay.add(face);
+      if (surf && labelAtlas && labelMat) {
+        const cell = shelfLabelUV(Math.max(0, this.shelfConfigs.findIndex((c) => c.category === conf.category)));
+        const geo = new THREE.PlaneGeometry(1.46, 0.28);
+        const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+        for (let i = 0; i < uv.count; i++) {
+          uv.setXY(
+            i,
+            cell.u0 + uv.getX(i) * (cell.u1 - cell.u0),
+            cell.v0 + uv.getY(i) * (cell.v1 - cell.v0)
+          );
+        }
+        uv.needsUpdate = true;
+        if (facing < 0) geo.rotateY(Math.PI);
+        geo.translate(conf.position.x, 2.72, conf.position.z + facing * (0.45 + 0.079));
+        labelGeos.push(geo);
       }
 
       // Stock: one InstancedMesh per bay, two rows deep and four tiers high.
@@ -213,6 +233,17 @@ export class PharmacyShelves3D {
 
     mergeRig(framesRoot);
     this.group.add(framesRoot);
+
+    // Four label quads, one draw: same geometry, same material, different UV cell.
+    if (labelGeos.length && labelMat) {
+      const merged = mergeGeometries(labelGeos, false);
+      for (const geo of labelGeos) geo.dispose();
+      if (merged) {
+        const labels = new THREE.Mesh(merged, labelMat);
+        labels.name = 'shelf-labels';
+        this.group.add(labels);
+      }
+    }
 
     this.updateVisuals();
   }
