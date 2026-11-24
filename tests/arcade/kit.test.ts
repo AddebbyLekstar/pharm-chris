@@ -43,7 +43,7 @@ describe('material families', () => {
   it('exposes exactly six families with spec roughness', () => {
     expect(Object.keys(MATERIALS)).toHaveLength(6);
     expect(MATERIALS.plaster.roughness).toBeCloseTo(0.86, 2);
-    expect(MATERIALS.glass.roughness).toBeCloseTo(0.16, 2);
+    expect(MATERIALS.glass.roughness).toBeCloseTo(0.06, 2);
     expect(MATERIALS.paper.roughness).toBeCloseTo(0.9, 2);
   });
 

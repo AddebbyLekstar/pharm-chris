@@ -21,13 +21,23 @@ export interface FamilySpec {
   envMapIntensity?: number;
 }
 
-/** Palette + roughness from the design spec (§3). These numbers are the contract. */
+/**
+ * Palette + roughness from the design spec (§6.3). These numbers are the contract,
+ * so `tests/arcade/materials_spec.test.ts` asserts them against a literal copy of
+ * the table: a family that drifts from the spec is a failing test, not a judgement
+ * call at review time.
+ */
 export const FAMILY_SPECS: Record<MaterialFamily, FamilySpec> = {
   plaster: { color: 0xefe6d6, roughness: 0.86, metalness: 0.0, envMapIntensity: 0.6 },
   tile: { color: 0xe8dcc8, roughness: 0.35, metalness: 0.04, envMapIntensity: 0.8 },
   wood: { color: 0x8a5a3b, roughness: 0.55, metalness: 0.04, envMapIntensity: 0.7 },
-  steel: { color: 0xc9ced2, roughness: 0.42, metalness: 0.55, envMapIntensity: 0.9 },
-  glass: { color: 0xd7f0f4, roughness: 0.16, metalness: 0.06, transparent: true, opacity: 0.28, depthWrite: false },
+  // Powder-coated, not chrome: the spec puts metalness at 0.15, and 0.55 turned
+  // every bracket and shelf upright into a mirror the room does not have light for.
+  steel: { color: 0xc9ced2, roughness: 0.42, metalness: 0.15, envMapIntensity: 0.9 },
+  // §6.3 glass: opacity 0.16, roughness 0.06, env 1.6, depthWrite false. The old
+  // 0.28 / 0.16 read as frosted plastic; glass that reflects more than it tints is
+  // what makes a sneeze guard legible without hiding the customer behind it.
+  glass: { color: 0xd7f0f4, roughness: 0.06, metalness: 0.06, transparent: true, opacity: 0.16, depthWrite: false, envMapIntensity: 1.6 },
   paper: { color: 0xf6f1e6, roughness: 0.9, metalness: 0.0, envMapIntensity: 0.5 },
 };
 
@@ -71,6 +81,28 @@ export const MATERIALS: Record<MaterialFamily, THREE.MeshStandardMaterial> = {
   glass: material('glass'),
   paper: material('paper'),
 };
+
+/**
+ * Brass is an accent of steel, not a seventh family.
+ *
+ * The spec allows six families; a seventh would be a new shader contract and a new
+ * thing to keep consistent. Brass is the same powder-coat mesh with different
+ * numbers, so it stays inside `steel` and the family count stays six. One cached
+ * instance, used on handles and sign frames only — anything more and the room turns
+ * gold.
+ */
+export function brassAccent(): THREE.MeshStandardMaterial {
+  const key = 'steel:brass';
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const mat = make('steel', PALETTE.brass);
+  mat.metalness = 0.85;
+  mat.roughness = 0.3;
+  mat.envMapIntensity = 1.0;
+  mat.name = 'kit-steel-brass';
+  cache.set(key, mat);
+  return mat;
+}
 
 /** Palette accents from the spec, so colour literals live in one file. */
 export const PALETTE = {

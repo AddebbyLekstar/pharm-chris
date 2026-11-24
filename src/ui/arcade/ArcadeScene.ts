@@ -235,11 +235,14 @@ export class ArcadeScene {
     const floor = this.shell.getObjectByName('pharm-floor') as THREE.Mesh | undefined;
     if (floor) this.paintFloor(floor);
 
-    // The cross is parented to the scene, not the shell, so it has to be walked
+    // The sign is parented to the scene, not the shell, so it has to be walked
     // back to whichever wall is now the back wall. Left alone it floats mid-room
-    // after the first expansion.
+    // after the first expansion. The plate sits 4 cm in front of the cross, so both
+    // move by the same delta rather than to the same z.
     const cross = this.group.getObjectByName('pharm-cross') as THREE.Mesh | undefined;
-    if (cross) cross.position.z = this.room.minZ + 0.07;
+    if (cross) cross.position.z = this.room.minZ + 0.09;
+    const crossPlate = this.group.getObjectByName('pharm-cross-plate') as THREE.Mesh | undefined;
+    if (crossPlate) crossPlate.position.z = this.room.minZ + 0.05;
 
     // Dressing is authored against the starting shop; when a wall moves, the props
     // on it move too, or they end up hanging over the new aisle.
@@ -431,16 +434,47 @@ export class ArcadeScene {
       this.pushShadow(1.15 * 0.85 * 2, 0.8 * 0.85 * 2, COUNTER.x + offset, COUNTER.z, 0.3, 0.006);
     }
 
-    // Pharmacy cross on the back wall, above the dispensary. One merged mesh, so it
-    // is one draw call and the expansion rebuild only has to move one object.
-    const crossMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.4, emissive: 0x0d2f10, emissiveIntensity: 0.4 });
-    const crossGeos = [chamferBox(0.42, 1.3, 0.1, 0.02), chamferBox(1.3, 0.42, 0.1, 0.02)];
+    // Pharmacy cross on the back wall, above the dispensary.
+    //
+    // Two meshes, not one: the sign is a lit plate with a green cross on it, the way
+    // a Nigerian pharmacy sign actually reads. The old version mounted a dull green
+    // cross (0x2e7d32) straight onto a dark green wall (0x1f4b3f) — measured on a
+    // 360 px frame it was a 54x82 px green-on-green patch that a first-time viewer
+    // could not identify. A cream plate under the cross gives it the contrast to
+    // read at 320 px, and the emissive carries the "backlit sign" cue at night.
+    //
+    // Height: WALL_HEIGHT is 2.8 m. The old centre at 2.25 m put the top of a 1.3 m
+    // cross at 2.90 m — 10 cm above the wall, floating over the street. 2.05 m keeps
+    // the whole sign on the wall face.
+    const plateMat = new THREE.MeshStandardMaterial({
+      color: 0xf4efe2,
+      roughness: 0.5,
+      emissive: 0xf4efe2,
+      emissiveIntensity: 0.22,
+    });
+    const plateGeos = [chamferBox(1.44, 1.44, 0.06, 0.02)];
+    const plateMerged = mergeGeometries(plateGeos, false);
+    for (const geo of plateGeos) geo.dispose();
+    if (plateMerged) {
+      const plate = new THREE.Mesh(plateMerged, plateMat);
+      plate.name = 'pharm-cross-plate';
+      plate.position.set(0, 2.02, ROOM.minZ + 0.05);
+      this.group.add(plate);
+    }
+
+    const crossMat = new THREE.MeshStandardMaterial({
+      color: 0x1f7a3d,
+      roughness: 0.38,
+      emissive: 0x1f7a3d,
+      emissiveIntensity: 0.45,
+    });
+    const crossGeos = [chamferBox(0.46, 1.28, 0.08, 0.02), chamferBox(1.28, 0.46, 0.08, 0.02)];
     const crossMerged = mergeGeometries(crossGeos, false);
     for (const geo of crossGeos) geo.dispose();
     if (crossMerged) {
       const cross = new THREE.Mesh(crossMerged, crossMat);
       cross.name = 'pharm-cross';
-      cross.position.set(0, 2.25, ROOM.minZ + 0.07);
+      cross.position.set(0, 2.02, ROOM.minZ + 0.09);
       this.group.add(cross);
     }
 
