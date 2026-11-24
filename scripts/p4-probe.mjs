@@ -39,9 +39,26 @@ const out = await page.evaluate(() => {
     }
   });
 
-  const textures = [...seen.values()]
-    .map((t) => ({ ...t, mb: +(t.bytes / (1024 * 1024)).toFixed(3) }))
+  const textures = [...seen.entries()]
+    .map(([key, t]) => ({ size: key, ...t, mb: +(t.bytes / (1024 * 1024)).toFixed(3) }))
     .sort((a, b) => b.w * b.h - a.w * a.h);
+
+  // Which materials use the big textures — names make the memory report actionable.
+  const big = new Map();
+  scene.traverse((o) => {
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) {
+      for (const k of Object.keys(m)) {
+        const v = m[k];
+        if (v && v.isTexture && v.image && v.image.width >= 512) {
+          const key = `${v.image.width}x${v.image.height}`;
+          const list = big.get(key) ?? new Set();
+          list.add(`${m.name || m.type}.${k}`);
+          big.set(key, list);
+        }
+      }
+    }
+  });
 
   const cross = scene.getObjectByName('pharm-cross');
   let crossRect = null;
@@ -71,6 +88,7 @@ const out = await page.evaluate(() => {
     viewport: [innerWidth, innerHeight],
     textureMB: +(texels / (1024 * 1024)).toFixed(2),
     textures,
+    bigTextures: Object.fromEntries([...big.entries()].map(([k, v]) => [k, [...v]])),
     crossRect,
   };
 });
