@@ -88,6 +88,82 @@ device framebuffer (`adb exec-out screencap -p`) showed the shop correctly.
 dock → shelf → counter rounds, cash and served deltas, a save/reload round trip, and
 a 6×-throttled phone pass.
 
+## Result of record — 2026-11-24, P4 first pass (`index-h2ROQeTs.js`, 295 tests)
+
+Two defects fixed, both found by rendering the phone frame rather than by reading code.
+
+1. **The pharmacy sign was not an identity cue.** It hung at 2.25 m, putting the top of a
+   1.3 m cross at 2.90 m — 10 cm above the 2.8 m wall — and it was dull green (0x2e7d32)
+   on a dark green wall. At 360 px that is a 54×82 px green-on-green patch; a first-time
+   viewer read the room as a convenience store. It is now a cream plate (1.44 m, centred
+   2.02 m, entirely on the wall) with a brighter cross 4 cm proud of it, both backlit.
+   Measured on the boot frame: mean luminance **130 inside the sign vs 61 surrounding
+   (+68)** at 360/390/414 px, and 132 vs 88 (+44) at 320 px.
+2. **Material families had drifted from spec §6.3.** glass `0.16 / 0.28 / 0.7` →
+   `0.06 / 0.16 / 1.6`, steel metalness `0.55` → `0.15`. `tests/arcade/materials_spec.test.ts`
+   now carries a hand-copied literal of the spec table, so drift is a red test rather than
+   a review opinion. Brass entered as `brassAccent()` — an accent of steel, not a seventh family.
+
+Marker: **295 tests** (was 282), bundle `index-h2ROQeTs.js` on all four boxes.
+
+| Box | Index asset | Tests | Layout gate | Draw calls | Triangles | Textures | Errors |
+|---|---|---|---|---|---|---|---|
+| `hermes` | `index-h2ROQeTs.js` | 295/295 | pass (7 viewports) | **94** max phone (93.5 avg), 206 desktop | 13,168 phone | 15.16 MB | 0 |
+| `hermes2` | `index-h2ROQeTs.js` | 295/295 | pass (7 viewports) | **94** max phone (93.5 avg), 204 desktop | 13,168 phone | 15.16 MB | 0 |
+| `hermesandroid` | `index-h2ROQeTs.js` | — | pass (360×495) | 80 | 12,460 | 15.16 MB | 0 |
+| `hermesandroid2` | `index-h2ROQeTs.js` | — | pass (360×495) | 80 | 12,460 | 15.16 MB | 0 |
+
+Cost of the sign: **+1 phone draw** (93 → 94, the plate) and +44 triangles. Desktop moved
+199–203 → 204–206; two of those draws are the sign, the rest is the desktop loop reaching a
+different queue depth between runs (its sample range was 139–199 before this change).
+
+Still open in P4: per-family roughness maps (plaster mottle, wood grain, steel brush),
+emissive pendant and fridge geometry, a point light still named `crossGlow` that is the
+fridge light, sign-atlas consolidation (13 MB of the 15.16 MB is thirteen 512² surfaces),
+and the grading A/B against the reference stills. Plan: `docs/superpowers/plans/2026-11-24-p4-material-and-light.md`.
+
+## Result of record — 2026-11-24, P3 characters closed (`index-BnJWOAvF.js`, 282 tests)
+
+P3 (characters) had been code-complete since 2026-11-22 without a four-box record: the
+beard/hair pass (`c9fd7b8`) and its follow-up fix (`6270bea`) landed after the last gate,
+which ran at `ff25b0b` with 241 tests. This record closes that gap. Nothing was changed to
+make it pass.
+
+Marker that the boxes ran this artifact: **282 tests** (was 241) and **textures 15.16 MB**
+(was 17.04) on all four boxes, same bundle `index-BnJWOAvF.js` everywhere.
+
+| Box | Index asset | Tests | Layout gate | Draw calls | Triangles | Textures | Errors |
+|---|---|---|---|---|---|---|---|
+| `hermes` | `index-BnJWOAvF.js` | 282/282 | pass (7 viewports) | **93** max phone (92.5 avg), 199 desktop | 13,124 phone | 15.16 MB | 0 |
+| `hermes2` | `index-BnJWOAvF.js` | 282/282 | pass (7 viewports) | **93** max phone (92.5 avg), 203 desktop | 13,124 phone | 15.16 MB | 0 |
+| `hermesandroid` | `index-BnJWOAvF.js` | — | pass (360×495) | 79 | 12,416 | 15.16 MB | 0 |
+| `hermesandroid2` | `index-BnJWOAvF.js` | — | pass (360×495) | 79 | 12,416 | 15.16 MB | 0 |
+
+Desktop loops served 4 and 5 customers and restored cash/day/served from a 1,260 B save on
+both PC boxes. Budgets: phone ≤120 (93), desktop ≤240 (203), textures ≤24 MB (15.16).
+
+**Deltas against the 2026-11-21 record, stated rather than smoothed:**
+
+| Measure | 2026-11-21 (`ff25b0b`) | Now (`6270bea`) | Delta |
+|---|---|---|---|
+| Tests | 241 | 282 | +41 |
+| Phone draws (max) | 93 | 93 | 0 |
+| Desktop draws | 206 / 206 | 199 / 203 | −3 / −7 |
+| Textures | 17.04 MB | 15.16 MB | **−1.88 MB** |
+| Phone triangles | 11,020 | 13,124 | +2,104 |
+| Android draws / tris | 80 / 10,528 | 79 / 12,416 | −1 / +1,888 |
+
+The texture delta is recorded as measured, not as a saving: no single asset was removed to
+produce it in this pass — the crowd renders from the jointed rig in both records, and the
+sprite atlas only loads under `?art=sprites` (which measures 19.18 MB, so it is not the
+missing 1.88 MB either). The 13 MB of 512² surface maps (floor tile, street, counter,
+signage) are unchanged. The triangle increase is the hair, beard and bag geometry added in
+`c9fd7b8` — 2,104 triangles for a cast that now differs per customer — inside a 45 k budget.
+
+Known gap carried into P4: phone portrait framing crops the room (`contained: false` at
+every width under 768 px, by design — the shop cannot fit a 0.45 aspect at the fill band).
+That crop is what left the pharmacy sign a small patch at the edge of the frame.
+
 ## Result of record — 2026-11-20, character draw pass (`index-D__Q-wKw.js`, 192 tests)
 
 One change: every character rig merges to one mesh per animated joint on a single
