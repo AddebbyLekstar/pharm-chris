@@ -88,6 +88,63 @@ device framebuffer (`adb exec-out screencap -p`) showed the shop correctly.
 dock → shelf → counter rounds, cash and served deltas, a save/reload round trip, and
 a 6×-throttled phone pass.
 
+## Result of record — 2026-11-26, P4 roughness maps and atlas (`index-D2dUlHdy.js`, 303 tests)
+
+Tip `6785ede` — three commits on `main` and pushed: `b5e833b` (bay-label atlas + 256²
+wall map), `bde4854` (probe texture counting), `6785ede` (per-family roughness maps).
+Not a phase close: P4 tasks 3–5 are still open, so this records a gated checkpoint, not
+a P4 final.
+
+**The measurement changed, so the old numbers are not comparable.** `instabox-check.mjs`,
+`p4-probe.mjs` and `perf-probe.mjs` summed every material slot pointing at a texture, so
+one shared family map on forty meshes was billed forty times and the poster atlas was
+billed once per shelf bay. De-duplicated by texture uuid, the current boot is **6.41 MB
+across 15 unique textures**. The 35 → 15.16 MB figure of 2026-11-24 and the 15.16 →
+10.16 MB claimed in `b5e833b` were both inflated by the same bug and should not be
+quoted again. Raw material-slot binds are unchanged by this commit; only the meter is.
+
+Task 1 lands plaster mottle (0.72–0.92), wood grain along u (0.42–0.62) and steel brush
+along v (0.32–0.50) as three seeded 256² fields, wired through `FamilySpec.roughnessMap`
+with the scalar pinned to 1 so three multiplies rather than clamps. The maps cost
++0.75 MB of unique texture and **zero draws**: no new material family, no new mesh.
+Tile, glass and brass were left alone deliberately — a noise map on the specular
+families reads as dirt.
+
+| Box | Index asset | Tests | Layout gate | Draw calls | Triangles | Textures | Errors |
+|---|---|---|---|---|---|---|---|
+| `hermes` | `index-D2dUlHdy.js` | 303/303 | pass (7 viewports) | **92** max phone (91.5 avg), 197 max desktop | 13,170 phone | 6.41 MB | 0 |
+| `hermesandroid` | `index-D2dUlHdy.js` | — | pass (360×495) | 78 | 12,462 | 6.41 MB | 0 |
+| `hermesandroid2` | `index-D2dUlHdy.js` | — | pass (360×495) | 78 | 12,462 | 6.41 MB | 0 |
+
+`hermes2` is deliberately absent: it is a Creator Studio slot, not a general sandbox,
+and is no longer part of this gate. The gate is three boxes from here on.
+
+Desktop loop on `hermes` served 0 → 5 customers for +₦3,010, and restored cash/day/served
+from a 1,062 B save. Heap was flat or falling across both passes (desktop 16.74 → 14.72 MB,
+phone 19.92 → 19.97 MB over ten samples) — not a leak test, just no growth in a 77 s run.
+
+**Near-misses, stated rather than rounded:**
+
+- Phone draws rose 90 → 92. The atlas held the count flat; the roughness maps added two.
+  Headroom to the 120 budget is 28 draws, but the live high-tier path measures 134 at
+  360×800 — the gate's phone pass is the forced low tier and is not that number.
+- **The room is still cropped on every phone width** (`contained: false` at 320/360/390/414).
+  HUD has no overlaps and no horizontal overflow, but this is P4 task 5, still open.
+- Android frame times are SwiftShader: p50 66.7 ms on `hermesandroid`, 200.1 ms on
+  `hermesandroid2` with p95 666.7 ms. Directional only, never to be quoted as device
+  performance; the spread between the two emulators is the host's CPU, not the build.
+- Zero console or page errors on all three boxes and on the deployed site
+  (`https://pharm-chris.vercel.app/`, `index-D2dUlHdy.js`, 134 draws, 24,350 tris at
+  360×800 high tier after Vercel picked up the push at 14:36).
+
+Reproduce:
+
+```bash
+bash scripts/instabox-gate.sh hermes
+bash scripts/instabox-gate.sh hermesandroid scripts/android-run.sh
+bash scripts/instabox-gate.sh hermesandroid2 scripts/android-run.sh
+```
+
 ## Result of record — 2026-11-24, P4 first pass (`index-h2ROQeTs.js`, 295 tests)
 
 Two defects fixed, both found by rendering the phone frame rather than by reading code.
