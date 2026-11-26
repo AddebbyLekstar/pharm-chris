@@ -20,12 +20,15 @@ const out = await page.evaluate(() => {
   const cam = p.director.viewport.camera;
   const seen = new Map();
   let texels = 0;
+  const counted = new Set();
   scene.traverse((o) => {
     const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
     for (const m of mats) {
       for (const k of Object.keys(m)) {
         const v = m[k];
         if (v && v.isTexture && v.image) {
+          if (counted.has(v.uuid)) continue;
+          counted.add(v.uuid);
           const w = v.image.width ?? 0;
           const h = v.image.height ?? 0;
           const key = `${w}x${h}`;

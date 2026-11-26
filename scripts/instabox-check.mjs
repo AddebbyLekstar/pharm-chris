@@ -36,12 +36,16 @@ const sample = (page) => page.evaluate(() => {
   const p = window.pharmChris;
   const scene = p.director.scene.scene;
   let meshes = 0, textures = 0, texels = 0;
+  const counted = new Set();
   scene.traverse((o) => {
     if (o.isMesh || o.isInstancedMesh) meshes++;
     const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
     for (const m of mats) for (const k of Object.keys(m)) {
       const v = m[k];
       if (v && v.isTexture && v.image) {
+        // Unique textures only: shared family maps and atlases are one upload.
+        if (counted.has(v.uuid)) continue;
+        counted.add(v.uuid);
         textures++;
         texels += (v.image.width ?? 0) * (v.image.height ?? 0) * 4;
       }

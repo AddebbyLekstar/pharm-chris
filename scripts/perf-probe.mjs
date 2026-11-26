@@ -53,6 +53,7 @@ const takeSample = async () => {
     let texels = 0;
     let textures = 0;
     let meshes = 0;
+    const counted = new Set();
     scene.traverse((o) => {
       if (o.isMesh || o.isInstancedMesh) meshes++;
       const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
@@ -60,6 +61,11 @@ const takeSample = async () => {
         for (const key of Object.keys(m)) {
           const v = m[key];
           if (v && v.isTexture && v.image) {
+            // Count each texture once. A shared family material appears on dozens
+            // of meshes and one atlas on every shelf; summing slots measures binds,
+            // not bytes, and over-reported the boot by ~40 %.
+            if (counted.has(v.uuid)) continue;
+            counted.add(v.uuid);
             textures++;
             const w = v.image.width ?? 0;
             const h = v.image.height ?? 0;
