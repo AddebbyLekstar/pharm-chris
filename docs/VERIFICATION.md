@@ -1,23 +1,103 @@
 # Build verification
 
 Every build that is called finished is verified on real hardware before it is pushed
-or deployed. The rule is fixed: **all four Instabox sandboxes**, two PC and two
-Android, on the exact artifact that ships.
+or deployed. The rule is fixed: **all three Instabox sandboxes** — two PC-class and one
+Android, plus a second Android — on the exact artifact that ships.
+
+`hermes2` was dropped from the gate on 2026-11-26: it is one of the two Creator Studio
+slots, and a slot that exists for a different product cannot be the second opinion on
+this one. The replacement for its "does it reproduce on a second machine" role is
+`hermesandroid2`, which builds the same bundle on different silicon.
 
 A green `npm test` is a floor, not a proof. The suite has never once caught a HUD
 overlap or a shelf parked off screen, and both of those shipped in a commit
 titled "fit the shop to portrait width".
 
-## The four boxes
+## Result of record — 2026-11-26, P4 tasks 4 and 5 (grade and phone composition)
+
+Bundle `index-CwvW07XD.js` (373.16 kB, gzip 112.28), `three-B5ljPr9R.js` unchanged,
+**307 tests in 34 files**, `tsc --noEmit` clean, commits `86740f1` + the docs commit.
+
+**Not gated.** The Instabox API key (`key_agq2ob5x…`) was revoked mid-run on 2026-11-26
+17:18–17:30: all three boxes failed at `resume` with `error revoked_key` before building
+anything. Nothing in this section is box-verified; it is local Chrome and local pixel
+measurement only. Re-issue a key at <https://dashboard.instabox.sh/dashboard/api-keys>
+and write it to `C:\Users\hp\.config\instabox\credentials.json`, then re-run the three-box
+gate before this section is treated as a landing record.
+
+### Task 4 — grade (`GRADE` in `src/ui/arcade/art.ts`)
+
+`v4: { exposure: 1.12, environment: 0.26 }`; key `0xffe9c9 @ 2.6` and ambient `0xf4f1ea
+@ 0.08` untouched, per the task rule that ambient never moves. Measured on a 390×844
+high-tier still with the overlays hidden, interior pixels only (the cutaway leaves a dark
+margin that pollutes whole-frame numbers):
+
+| still | interior mean | p05 | p50 | p95 | clipped >250 |
+|---|---|---|---|---|---|
+| before (`1.00 / 0.14`) | 102.0 | 12 | 116 | 199 | 0.00 % |
+| after (`1.12 / 0.26`) | 113.4 | 12 | 127 | 215 | 0.00 % |
+| ref-B concept frame | 121.0 | 50 | 119 | 216 | 0.04 % |
+
+Highlight control now matches the concept frame (p95 215 against 216, nothing clipped).
+Two gaps remain and neither is grade work:
+
+- **Shadows are two stops deep.** p05 12 against 50. Exposure and environment cannot
+  lift them further without blowing highlights, and the rig is one directional plus two
+  points at ambient 0.08. The fix is bounce light — a baked AO pass, which the spec's P4
+  line calls for and this plan's six tasks never listed.
+- **The frame is not warm.** R−B 39 against ref-B's 63. Warming the key to `0xffdfb4` and
+  desaturating the sky moved it 0.6, because the cast is the sage wall and the cool tile,
+  not the light. Palette, not grading — a P5 item.
+
+The probe itself was lying about the A/B: its text match hid the top bar and left the
+INVEST button, the hint line and the mode switcher in frame. `scripts/p4-practicals.mjs`
+now hides `#pharm-hud` and `#sim-mode-switcher` by id and warns if either survives.
+The pair is `docs/art/p4-390-frame-before.png` / `-after.png`, plate
+`docs/art/p4-grade-ab.png` (ref-B left, before middle, after right).
+
+### Task 5 — phone composition
+
+`scripts/p4-composition.mjs` is the new gate: at each width it hides the overlays,
+projects the cue's box, screenshots, decodes that PNG back inside the page and averages
+pixels inside the cue against a ring 5–30 px around it. It fails on a delta under +40, on
+a cue clipped by the frame edge, or on any console/page error.
+
+| width | cue rect (px) | cue | surround | delta |
+|---|---|---|---|---|
+| 320 | 221, 277, 57×88 | 155.8 | 63.1 | **+92.7** |
+| 360 | 241, 277, 57×88 | 154.9 | 63.6 | **+91.4** |
+| 390 | 256, 277, 57×88 | 154.6 | 63.9 | **+90.7** |
+| 414 | 268, 277, 57×88 | 156.0 | 63.9 | **+92.1** |
+
+`COMPOSITION_PASS`, 0 errors, cue inside the frame at every width. Stills
+`docs/art/p4-comp-<width>.png`, numbers `docs/art/p4-composition.json`.
+
+The plan's candidate was the **counter fascia** and it did not survive measurement. A
+2.4 × 0.30 m enamel plate with a green cross and "PHARMACY / DISPENSING" was built on the
+counter's aisle face and measured **+5.9 at 390 and +1.3 at 414** (and an unreliable +71.8
+at 320, which is a surround artefact, not a cue): the spawn camera looks along that face
+almost edge-on, so the plate projected 83×78 px of near-foreshortened ivory against an
+already-bright white slab. It was reverted rather than shipped on the strength of one
+lucky width.
+
+The cue that does read is the **green-cross plate on the back wall** (`pharm-cross-plate`),
+which holds ~+91 at every width because the camera faces it. `scripts/cue-probe.mjs` ranks
+every signage mesh this way (it is the tool that produced this table); re-run it if the
+camera or the room changes before trusting `p4-composition.mjs`.
+
+`contained: false` is unchanged and is not treated as a defect in its own right: at 320 px
+the room cannot be both fully framed and keep Chris at a readable 46 px. The acceptance
+this task was given is the cue, and the cue passes with 2.3× headroom.
+
+## The three boxes
 
 | Sandbox | Template | What it proves |
 |---|---|---|
 | `hermes` | `agent-browser` (4 vCPU / 8 GB) | clean Linux build, unit suite, headless Chromium layout gate, perf probe |
-| `hermes2` | `agent-browser` | the same, on a second machine: the run reproduces rather than depending on one box's state |
 | `hermesandroid` | `android` (Android 14 emulator) | real Android WebView, touch viewport, touch copy, GPU emulation path |
-| `hermesandroid2` | `android` | the same on a second emulator |
+| `hermesandroid2` | `android` | the same on a second emulator, so the run reproduces on different silicon |
 
-All four build the same bundle. Compare the hashed asset name between boxes before
+All three build the same bundle. Compare the hashed asset name between boxes before
 believing any of them: if `dist/index.html` references a different `assets/index-*.js`
 than the build you inspected locally, you verified something else.
 
