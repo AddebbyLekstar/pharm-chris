@@ -106,6 +106,117 @@ export function terrazzo(): THREE.CanvasTexture {
   return finish(canvas, 4, 4.5);
 }
 
+/**
+ * Roughness fields for the three matte families.
+ *
+ * A single scalar per family is a lie the eye reads instantly: plaster, wood and
+ * steel all shade like the same plastic at different tints. These fields are pure
+ * functions of (kind, size) — no canvas, no DOM — so a node test can hold them to
+ * their bands, and the browser only has to putImageData them.
+ *
+ * Bands from the P4 plan: plaster 0.72–0.92 (blotchy roller), wood 0.42–0.62
+ * (grain along u), steel 0.32–0.50 (brush along v).
+ */
+export type RoughnessKind = 'plaster' | 'wood' | 'steel';
+
+export const ROUGHNESS_BANDS: Record<RoughnessKind, { min: number; max: number; base: number }> = {
+  plaster: { min: 0.72, max: 0.92, base: 0.82 },
+  wood: { min: 0.42, max: 0.62, base: 0.52 },
+  steel: { min: 0.3, max: 0.5, base: 0.41 },
+};
+
+/** Wrapping value noise on a lattice, bilinear and smoothstepped. */
+function valueNoise(seed: number, cells: number): (x: number, y: number) => number {
+  const rand = mulberry32(seed);
+  const grid = new Float32Array(cells * cells);
+  for (let i = 0; i < grid.length; i++) grid[i] = rand();
+  const at = (ix: number, iy: number): number =>
+    grid[((iy % cells) + cells) % cells * cells + (((ix % cells) + cells) % cells)];
+
+  return (x: number, y: number): number => {
+    const fx = (((x % 1) + 1) % 1) * cells;
+    const fy = (((y % 1) + 1) % 1) * cells;
+    const ix = Math.floor(fx);
+    const iy = Math.floor(fy);
+    const tx = fx - ix;
+    const ty = fy - iy;
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const a = at(ix, iy);
+    const b = at(ix + 1, iy);
+    const c = at(ix, iy + 1);
+    const d = at(ix + 1, iy + 1);
+    return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
+  };
+}
+
+const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+export function roughnessField(kind: RoughnessKind, size: number): Float32Array {
+  const out = new Float32Array(size * size);
+  const band = ROUGHNESS_BANDS[kind];
+
+  if (kind === 'plaster') {
+    const blotch = valueNoise(0x51a7e1, 7);
+    const grain = valueNoise(0x9d2c04, 48);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const u = x / size;
+        const v = y / size;
+        const value = band.base + (blotch(u * 2.4, v * 2.4) - 0.5) * 0.15 + (grain(u * 9, v * 9) - 0.5) * 0.05;
+        out[y * size + x] = clamp01(value);
+      }
+    }
+  } else if (kind === 'wood') {
+    // Grain runs along u: the sine's phase varies with v, so lines streak sideways
+    // like sawn teak rather than forming a grid.
+    const warp = valueNoise(0x2f7b13, 9);
+    const pore = valueNoise(0xc41d55, 40);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const u = x / size;
+        const v = y / size;
+        const phase = (v * 7 + warp(u * 1.5, v * 0.8) * 1.6) * Math.PI * 2;
+        const value = band.base + Math.sin(phase) * 0.045 + (pore(u * 3, v * 14) - 0.5) * 0.05;
+        out[y * size + x] = clamp01(value);
+      }
+    }
+  } else {
+    // Brush runs along v: one random value per column, so the sheen breaks into
+    // vertical strokes instead of a speckled sheet.
+    const columns = new Float32Array(size);
+    const rand = mulberry32(0x77c1a9);
+    for (let x = 0; x < size; x++) columns[x] = rand();
+    const drift = valueNoise(0x3b8f2d, 6);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const u = x / size;
+        const v = y / size;
+        const value = band.base + (columns[x] - 0.5) * 0.11 + (drift(u * 2, v * 2) - 0.5) * 0.04;
+        out[y * size + x] = clamp01(value);
+      }
+    }
+  }
+
+  return out;
+}
+
+/** Greyscale canvas texture from a roughness field; not sRGB, it is data. */
+export function roughnessTexture(kind: RoughnessKind, size = 256): THREE.CanvasTexture {
+  const { canvas, ctx } = sheet(size);
+  const field = roughnessField(kind, size);
+  const image = ctx.createImageData(size, size);
+  for (let i = 0; i < field.length; i++) {
+    const v = Math.round(field[i] * 255);
+    image.data[i * 4] = v;
+    image.data[i * 4 + 1] = v;
+    image.data[i * 4 + 2] = v;
+    image.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  return finish(canvas, 2, 2, false);
+}
+
 /** Roughness map for the floor: glossier inside tiles, rougher at the grout. */
 export function terrazzoRoughness(): THREE.CanvasTexture {
   const { canvas, ctx } = sheet(256);
@@ -805,7 +916,10 @@ let cache: ReturnType<typeof buildCache> | null = null;
 export const TEXTURE_MANIFEST: ReadonlyArray<{ name: string; width: number; height: number; count?: number }> = [
   { name: 'terracotta-floor', width: 512, height: 512 },
   { name: 'floor-roughness', width: 256, height: 256 },
-  { name: 'painted-wall', width: 512, height: 512 },
+  { name: 'plaster-roughness', width: 256, height: 256 },
+  { name: 'wood-roughness', width: 256, height: 256 },
+  { name: 'steel-roughness', width: 256, height: 256 },
+  { name: 'painted-wall', width: 256, height: 256 },
   { name: 'teak', width: 512, height: 512 },
   { name: 'laminate', width: 256, height: 256 },
   { name: 'steel-teal', width: 256, height: 256 },
@@ -831,6 +945,12 @@ function buildCache() {
   return {
     terrazzo: terrazzo(),
     terrazzoRoughness: terrazzoRoughness(),
+    // One map per matte family, shared by every colour variant of that family.
+    roughness: {
+      plaster: roughnessTexture('plaster'),
+      wood: roughnessTexture('wood'),
+      steel: roughnessTexture('steel'),
+    },
     wall: paintedWall(),
     teak: teak(),
     laminate: laminate(),
@@ -872,7 +992,14 @@ export function disposeTextures(): void {
   }
   if (!cache) return;
   for (const value of Object.values(cache)) {
-    if (value instanceof THREE.Texture) value.dispose();
+    if (value instanceof THREE.Texture) {
+      value.dispose();
+    } else if (value && typeof value === 'object') {
+      // Nested groups (the per-family roughness maps) hold textures too.
+      for (const inner of Object.values(value)) {
+        if (inner instanceof THREE.Texture) inner.dispose();
+      }
+    }
   }
   cache = null;
 }

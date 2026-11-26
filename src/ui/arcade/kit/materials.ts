@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { textures, type RoughnessKind } from '../textures';
 
 /**
  * Six material families, and no seventh.
@@ -19,6 +20,8 @@ export interface FamilySpec {
   opacity?: number;
   depthWrite?: boolean;
   envMapIntensity?: number;
+  /** Roughness varies per texel; `roughness` then carries 1 and the map the value. */
+  roughnessMap?: boolean;
 }
 
 /**
@@ -28,12 +31,12 @@ export interface FamilySpec {
  * call at review time.
  */
 export const FAMILY_SPECS: Record<MaterialFamily, FamilySpec> = {
-  plaster: { color: 0xefe6d6, roughness: 0.86, metalness: 0.0, envMapIntensity: 0.6 },
+  plaster: { color: 0xefe6d6, roughness: 0.86, metalness: 0.0, envMapIntensity: 0.6, roughnessMap: true },
   tile: { color: 0xe8dcc8, roughness: 0.35, metalness: 0.04, envMapIntensity: 0.8 },
-  wood: { color: 0x8a5a3b, roughness: 0.55, metalness: 0.04, envMapIntensity: 0.7 },
+  wood: { color: 0x8a5a3b, roughness: 0.55, metalness: 0.04, envMapIntensity: 0.7, roughnessMap: true },
   // Powder-coated, not chrome: the spec puts metalness at 0.15, and 0.55 turned
   // every bracket and shelf upright into a mirror the room does not have light for.
-  steel: { color: 0xc9ced2, roughness: 0.42, metalness: 0.15, envMapIntensity: 0.9 },
+  steel: { color: 0xc9ced2, roughness: 0.42, metalness: 0.15, envMapIntensity: 0.9, roughnessMap: true },
   // §6.3 glass: opacity 0.16, roughness 0.06, env 1.6, depthWrite false. The old
   // 0.28 / 0.16 read as frosted plastic; glass that reflects more than it tints is
   // what makes a sneeze guard legible without hiding the customer behind it.
@@ -52,6 +55,15 @@ function make(family: MaterialFamily, color?: number): THREE.MeshStandardMateria
     depthWrite: spec.depthWrite ?? true,
   });
   mat.envMapIntensity = spec.envMapIntensity ?? 0.7;
+  if (spec.roughnessMap) {
+    // Same pattern as the terrazzo floor: the map carries the value, the scalar
+    // stays 1 so three multiplies rather than clamps it.
+    const map = textures()?.roughness[family as RoughnessKind];
+    if (map) {
+      mat.roughnessMap = map;
+      mat.roughness = 1;
+    }
+  }
   mat.name = `kit-${family}`;
   return mat;
 }

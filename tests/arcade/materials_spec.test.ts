@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { FAMILY_SPECS, MATERIALS, brassAccent, material, PALETTE } from '../../src/ui/arcade/kit/materials';
+import { ROUGHNESS_BANDS, roughnessField } from '../../src/ui/arcade/textures';
 
 /**
  * The spec table, copied by hand from
@@ -47,3 +48,47 @@ describe('material families against spec §6.3', () => {
     expect(material('steel', 0x123456)).not.toBe(material('steel', 0x654321));
   });
 });
+
+/**
+ * P4: a single roughness number per family is why plaster, wood and steel read as
+ * three tints of the same plastic. The maps carry the value (material roughness 1)
+ * the way the terrazzo floor already does.
+ */
+describe('per-family roughness maps', () => {
+  it('marks exactly the three matte families as mapped', () => {
+    expect(FAMILY_SPECS.plaster.roughnessMap).toBe(true);
+    expect(FAMILY_SPECS.wood.roughnessMap).toBe(true);
+    expect(FAMILY_SPECS.steel.roughnessMap).toBe(true);
+    expect(FAMILY_SPECS.tile.roughnessMap).toBeUndefined();
+    expect(FAMILY_SPECS.glass.roughnessMap).toBeUndefined();
+    expect(FAMILY_SPECS.paper.roughnessMap).toBeUndefined();
+  });
+
+  for (const kind of ['plaster', 'wood', 'steel'] as const) {
+    it(`${kind} field stays inside its band`, () => {
+      const field = roughnessField(kind, 256);
+      expect(field).toHaveLength(256 * 256);
+      let sum = 0;
+      let min = 1;
+      let max = 0;
+      for (const value of field) {
+        sum += value;
+        min = Math.min(min, value);
+        max = Math.max(max, value);
+      }
+      const mean = sum / field.length;
+      const band = ROUGHNESS_BANDS[kind];
+      expect(mean).toBeGreaterThanOrEqual(band.min);
+      expect(mean).toBeLessThanOrEqual(band.max);
+      expect(min).toBeGreaterThanOrEqual(0);
+      expect(max).toBeLessThanOrEqual(1);
+      // A field that is all one value is a constant dressed as a map.
+      expect(max - min).toBeGreaterThan(0.05);
+    });
+  }
+
+  it('is deterministic, so two boots shade identically', () => {
+    expect(Array.from(roughnessField('wood', 64))).toEqual(Array.from(roughnessField('wood', 64)));
+  });
+});
+
