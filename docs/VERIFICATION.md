@@ -88,6 +88,77 @@ device framebuffer (`adb exec-out screencap -p`) showed the shop correctly.
 dock → shelf → counter rounds, cash and served deltas, a save/reload round trip, and
 a 6×-throttled phone pass.
 
+## Result of record — 2026-11-26, P4 task 3 practicals (`index-B6UNhwHr.js`, 306 tests)
+
+Tip `052c74d`, pushed, three boxes green on the exact artifact. Still a checkpoint: tasks
+4 (grading A/B) and 5 (phone composition) are open, so this is not P4 final.
+
+Two emissive surfaces, both accents of the six families rather than a seventh material:
+a warm pendant diffuser at 0.9 and the cold-chain back panel at 0.55, each one cached
+material so every lamp in the room merges into a single draw. `LIGHTS.*.crossGlow` is
+`fridgeGlow` now, and the point light is named `pharm-fridge-light` and placed on the
+cold-chain bay's own origin instead of a hand-typed coordinate.
+
+**Four defects the numbers alone would not have found.** The first implementation hit
+every value the plan asked for and changed nothing visible: the rendered 390 px frame
+showed an unlit lamp and a fridge with no light in it. Rendering, cropping at 6×, and
+raycasting from the camera found why.
+
+1. **Both right-hand bays were built backwards.** `facing` was inferred from the bay's x
+   sign, so antibiotics and the cold-chain unit had the solid back panel and the label
+   plate facing the aisle while the glass door, the glow panel and the stock faced the
+   wall. The camera was looking at the open back of the fridge. Every bay opens toward
+   +z; the sign test is gone.
+2. **The glow plane sat 5 mm inside the 7 cm back panel** — the teal was drawn inside the
+   cabinet. It is now 2 cm clear of the panel's inner face.
+3. **The diffuser was coplanar with the shade's bottom cap and narrower than its mouth**
+   (0.22 m disc under a 0.27 m shade), so the depth test handed the pixels to the steel.
+   It sits 4 cm below the rim at 0.32 m and the material is double-sided: the game camera
+   is above the room and can never see a shade's underside.
+4. **An emissive with a cream albedo tone-maps to flat white.** Under the 2.6-intensity
+   sun the 0.9 disc rendered as `248,244,233` — brighter than the wall and no warmer.
+   Both practicals now have near-black albedo and emit only; the disc reads `245,193,108`.
+
+| Box | Index asset | Tests | Layout gate | Draw calls | Triangles | Textures | Errors |
+|---|---|---|---|---|---|---|---|
+| `hermes` | `index-B6UNhwHr.js` | 306/306 | pass (7 viewports) | **93** max phone (92.5 avg), 200 max desktop | 13,178 phone | 6.41 MB | 0 |
+| `hermesandroid` | `index-B6UNhwHr.js` | — | pass (360×495) | 78 | 12,430 | 6.41 MB | 0 |
+| `hermesandroid2` | `index-B6UNhwHr.js` | — | pass (360×495) | 82 max | 12,602 | 6.41 MB | 0 |
+
+Desktop loop on `hermes` served 0 → 5 for +₦2,310 and restored from a 1,062 B save; heap
+16.85 → 15.22 MB. Phone heap 23.18 → 23.36 MB. No console or page errors on any box.
+
+**Near-misses, stated rather than rounded:**
+
+- The fridge is now the right way round, and that costs draws: live 1280×800 local probe
+  went 134 → 144 draws and 24,350 → 25,534 tris, gate phone 92 → 93, desktop 197 → 200.
+  The geometry did not grow; the door, the stock and the panel behind them stopped being
+  culled because they are finally on the aisle side. Phone headroom to the 120 budget is 27.
+- **The lamp reads as a small amber ring at 390 px, not as a lit lamp.** The disc is 0.32 m
+  wide at 2.31 m, roughly ten pixels on a phone — measurably warm (245,193,108) and legible
+  at 6×, not a light source the eye finds in one second. Making the lamp read at phone scale
+  is a grading and composition question (tasks 4 and 5), not another emissive value.
+- **The teal panel reads as a dark teal cabinet interior, not a lightbox.** 0.55 with no
+  albedo is the plan's number and it was kept; whether it should rise is task 4's call,
+  against the reference stills rather than in isolation.
+- The room is still cropped at every phone width (`contained: false`). Unchanged, still task 5.
+- `hermesandroid2` reported p50 266.7 ms / p95 800.1 ms against 66.7 / 66.7 on
+  `hermesandroid`. Both are SwiftShader on the same artifact; the spread is the host CPU.
+  Directional only, never to be quoted as device performance.
+- `window.pharmChris` gained a `raycaster()` factory so a probe can cast into the live scene
+  without bundling a second copy of three. `Raycaster` alone is imported; the namespace is
+  not exposed, which would defeat tree-shaking.
+
+Reproduce:
+
+```bash
+node scripts/p4-practicals.mjs --viewport 1280x800 --tag desktop   # stills + screen points
+node scripts/p4-practicals.mjs --viewport 390x844 --tag phone
+bash scripts/instabox-gate.sh hermes
+bash scripts/instabox-gate.sh hermesandroid scripts/android-run.sh
+bash scripts/instabox-gate.sh hermesandroid2 scripts/android-run.sh
+```
+
 ## Result of record — 2026-11-26, P4 roughness maps and atlas (`index-D2dUlHdy.js`, 303 tests)
 
 Tip `6785ede` — three commits on `main` and pushed: `b5e833b` (bay-label atlas + 256²
