@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { SHELF_BAYS } from './layout';
 import { chamferBox } from './kit/geometry';
-import { material } from './kit/materials';
+import { material, practical } from './kit/materials';
 import { mergeRig } from './mergeMeshes';
 import { Product } from '../../sim/types';
 import { artVersion } from './art';
@@ -69,13 +69,11 @@ export class PharmacyShelves3D {
     // merges cost ~12 draw calls (and again in the shadow pass), one merge costs 3.
     const framesRoot = new THREE.Group();
     framesRoot.name = 'shelf-frames';
-    // Shared so the four cold-chain glow panels merge with each other.
-    const fridgeGlowMat = new THREE.MeshStandardMaterial({
-      color: 0x9fe8ef,
-      emissive: 0x2e8b8b,
-      emissiveIntensity: 0.9,
-      roughness: 0.6,
-    });
+    // Shared so the four cold-chain glow panels merge with each other. The practical
+    // material is the single definition of the fridge panel's emissive value: this
+    // file used to carry its own 0.9 literal, which made the panel the brightest
+    // thing in the room and disagreed with the lighting record.
+    const fridgeGlowMat = practical('fridgePanel');
 
     // One atlas and one material for all four bay labels: per-bay canvases were
     // 4 MB of the boot and four separate texture binds for four lines of type.
@@ -98,7 +96,13 @@ export class PharmacyShelves3D {
       const shelfBay = new THREE.Group();
       shelfBay.position.copy(conf.position);
       const isFridge = conf.category === 'cold_chain';
-      const facing = conf.position.x < 0 ? 1 : -1; // +z is the aisle side
+      // Every bay opens toward +z, the checkout side. This used to be inferred from
+      // the bay's x sign ("left-hand units open right"), which built the two right
+      // bays — antibiotics and the cold-chain unit — backwards: the solid back panel
+      // and the label plate faced the aisle while the glass door, the glow panel and
+      // the stock faced the wall. From the game camera the fridge showed its open
+      // back and none of its light.
+      const facing = 1;
 
       // Open frame, not a solid block. A closed 1.6 x 2.6 x 0.85 box reads as a
       // painted slab from any angle; five 7 cm panels and four tiers read as a
@@ -134,7 +138,10 @@ export class PharmacyShelves3D {
         door.position.set(conf.position.x, H / 2, conf.position.z + facing * (D / 2 - 0.02));
         framesRoot.add(door);
         const glow = new THREE.Mesh(new THREE.PlaneGeometry(W - T * 3, H - 0.5), fridgeGlowMat);
-        glow.position.set(conf.position.x, H / 2, conf.position.z - facing * (D / 2 - T - 0.005));
+        // 2 cm clear of the solid back panel's inner face. The old offset put the
+        // plane 5 mm inside the 7 cm panel, so the teal was drawn inside the cabinet
+        // and the fridge read as a white box with stock in it.
+        glow.position.set(conf.position.x, H / 2, conf.position.z - facing * (D / 2 - T - 0.02));
         glow.rotation.y = facing > 0 ? 0 : Math.PI;
         framesRoot.add(glow);
       }

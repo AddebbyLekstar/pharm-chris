@@ -71,6 +71,55 @@ function make(family: MaterialFamily, color?: number): THREE.MeshStandardMateria
 const cache = new Map<string, THREE.MeshStandardMaterial>();
 
 /**
+ * Practicals: surfaces that are their own light source.
+ *
+ * A pendant shade with no lit underside and a fridge with no glowing panel are the
+ * two places a warm room reads as a model rather than a place. They stay accents of
+ * the six families — same `MeshStandardMaterial` contract, emissive added — so the
+ * family count does not move and each one is a single cached material, which means
+ * one merged draw for every lamp in the room.
+ */
+export type PracticalKind = 'lampShade' | 'fridgePanel';
+
+const PRACTICAL_SPECS: Record<
+  PracticalKind,
+  { name: string; color: number; emissive: number; emissiveIntensity: number; roughness: number }
+> = {
+  // Warm, and only 0.9: a hotter disc blooms into a white hole at 360 px. The base
+  // colour is near-black on purpose — a practical must be emissive *only*. Given a
+  // cream base, the 2.6-intensity sun alone took the disc to flat white and the lamp
+  // read as off regardless of how bright its emissive was.
+  lampShade: { name: 'practical-lamp', color: 0x0b0a08, emissive: 0xff9d3d, emissiveIntensity: 0.9, roughness: 0.6 },
+  // §6.3's cold-chain panel: teal at 0.55, bright enough to read as refrigeration
+  // through the glass door without lighting the aisle like a fifth point light. Same
+  // rule: no albedo, or the sun bleaches the teal out of it.
+  fridgePanel: { name: 'practical-fridge', color: 0x04191a, emissive: 0x2e8b8b, emissiveIntensity: 0.55, roughness: 0.6 },
+};
+
+/** The shared practical material. One instance per kind, so all lamps batch. */
+export function practical(kind: PracticalKind): THREE.MeshStandardMaterial {
+  const key = `practical:${kind}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const spec = PRACTICAL_SPECS[kind];
+  const mat = new THREE.MeshStandardMaterial({
+    color: spec.color,
+    emissive: spec.emissive,
+    emissiveIntensity: spec.emissiveIntensity,
+    roughness: spec.roughness,
+    metalness: 0,
+    // The pendant's diffuser is a disc seen from below by the physics and from above
+    // by the only camera the game has. Single-sided, the lamp's own light source was
+    // invisible in every frame: backface-culled by the shade and by the disc's own
+    // winding.
+    side: kind === 'lampShade' ? THREE.DoubleSide : THREE.FrontSide,
+  });
+  mat.name = spec.name;
+  cache.set(key, mat);
+  return mat;
+}
+
+/**
  * The shared family material. Callers may pass an accent colour (deep green wall,
  * terracotta trim) and still share one instance per family+colour pair, so the
  * renderer batches them together instead of binding a new material per prop.

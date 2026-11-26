@@ -1,3 +1,4 @@
+import { Raycaster } from 'three';
 import { PharmChrisEngine } from '../../sim/engine';
 import { StoreRun } from '../../sim/progression';
 import { loadRun, saveRun, clearSave, settleOffline, OfflineResult } from '../../sim/save';
@@ -215,6 +216,9 @@ export class ArcadeApp {
       run: this.run,
       director: this.director,
       telemetry: this.telemetry,
+      // Enough of three to raycast against the live scene from a probe without
+      // exposing the whole namespace (which would defeat tree-shaking).
+      raycaster: () => new Raycaster(),
       funnel: () => this.telemetry.funnel(),
       exportFunnel: () => downloadFunnel(this.telemetry),
       perf: () => this.director.perfStats(),

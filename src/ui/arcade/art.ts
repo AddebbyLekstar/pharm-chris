@@ -30,7 +30,7 @@ export interface LightSetup {
   sun: { color: number; intensity: number };
   hemisphere: { sky: number; ground: number; intensity: number };
   counterSpot: { color: number; intensity: number; distance: number } | null;
-  crossGlow: { color: number; intensity: number; distance: number } | null;
+  fridgeGlow: { color: number; intensity: number; distance: number } | null;
 }
 
 /**
@@ -44,14 +44,14 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
     sun: { color: 0xffeed6, intensity: 1.75 },
     hemisphere: { sky: 0xb5e2ff, ground: 0x3d2716, intensity: 0.45 },
     counterSpot: { color: 0xfff3db, intensity: 1.5, distance: 14 },
-    crossGlow: { color: 0x00e676, intensity: 0.65, distance: 10 },
+    fridgeGlow: { color: 0x00e676, intensity: 0.65, distance: 10 },
   },
   v2: {
     ambient: { color: 0xf2f6ff, intensity: 0.1 },
     sun: { color: 0xfff1d8, intensity: 2.6 },
     hemisphere: { sky: 0x9fd4ff, ground: 0x5a3a20, intensity: 0.2 },
     counterSpot: null,
-    crossGlow: { color: 0x00e676, intensity: 0.3, distance: 9 },
+    fridgeGlow: { color: 0x00e676, intensity: 0.3, distance: 9 },
   },
   v3: {
     // Same physical budget as v2. v3 adds detail to the surfaces, not light to
@@ -60,7 +60,7 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
     sun: { color: 0xfff1d8, intensity: 2.6 },
     hemisphere: { sky: 0x9fd4ff, ground: 0x5a3a20, intensity: 0.2 },
     counterSpot: null,
-    crossGlow: { color: 0x00e676, intensity: 0.3, distance: 9 },
+    fridgeGlow: { color: 0x00e676, intensity: 0.3, distance: 9 },
   },
   v4: {
     // Three lights, each with a job: the sun comes through the front door and is
@@ -71,7 +71,7 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
     sun: { color: 0xffe9c9, intensity: 2.6 },
     hemisphere: { sky: 0xa8d4ff, ground: 0x8a6440, intensity: 0.24 },
     counterSpot: { color: 0xffd9a0, intensity: 2.4, distance: 9 },
-    crossGlow: { color: 0x2e8b8b, intensity: 1.0, distance: 6 },
+    fridgeGlow: { color: 0x2e8b8b, intensity: 1.0, distance: 6 },
   },
 };
 

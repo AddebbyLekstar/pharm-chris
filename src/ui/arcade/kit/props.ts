@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { COUNTER, ROOM, WALKABLE, ZONES, boundsFor as boundsForLevel } from '../layout';
 import { chamferBox, leafBlade } from './geometry';
-import { material, PALETTE, type MaterialFamily } from './materials';
+import { material, practical, PALETTE, type MaterialFamily, type PracticalKind } from './materials';
 import { posterAtlas, posterCellUV } from '../textures';
 
 /**
@@ -328,6 +328,27 @@ export class PropWriter {
     this.push(geo, material(family, color));
   }
 
+  /**
+   * A self-lit disc: the pendant's underside. Separate from `disc` because the
+   * material is the point — a lamp underside painted in the paper family catches
+   * light but never appears to emit it, and every lamp merged into one practical
+   * bucket still costs a single draw for the whole dressing.
+   */
+  public practicalDisc(
+    kind: PracticalKind,
+    radius: number,
+    lx: number,
+    ly: number,
+    lz: number,
+    rotX: number
+  ): void {
+    const geo = new THREE.CircleGeometry(radius, 20);
+    const m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rotX, this.rotY, 0, 'YXZ'));
+    m.setPosition(this.world(lx, ly, lz));
+    geo.applyMatrix4(m);
+    this.push(geo, practical(kind));
+  }
+
 }
 
 function buildProp(p: DressingPlacement, buckets: Buckets): PropWriter {
@@ -492,8 +513,12 @@ function buildProp(p: DressingPlacement, buckets: Buckets): PropWriter {
       w.box('steel', C.steelDark, 0.014, 0.34, 0.014, 0, y + 0.17, 0, 0, 0, 0.004);
       w.cyl('plaster', C.plaster, 0.16, 0.18, 0.05, 0, 2.78, 0, 16);
       w.cyl('steel', C.steelDark, 0.06, 0.27, 0.2, 0, y, 0, 14);
-      // The one warm surface in the dressing: it explains the counter light.
-      w.disc('paper', C.paper, 0.22, 0, y - 0.1, 0, Math.PI / 2);
+      // The one warm surface in the dressing: it explains the counter light. 0.32 m
+      // is deliberately wider than the shade's 0.27 m mouth so the diffuser's rim is
+      // visible from the game's above-the-room camera, and it sits 4 cm under the rim
+      // instead of on it: at y - 0.1 the disc was coplanar with the shade's bottom cap
+      // and the steel won the depth test.
+      w.practicalDisc('lampShade', 0.32, 0, y - 0.14, 0, Math.PI / 2);
       break;
     }
 

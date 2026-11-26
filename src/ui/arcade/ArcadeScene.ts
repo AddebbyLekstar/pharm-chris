@@ -351,12 +351,20 @@ export class ArcadeScene {
       this.group.add(counterSpot);
     }
 
-    if (setup.crossGlow) {
-      const crossGlow = new THREE.PointLight(setup.crossGlow.color, setup.crossGlow.intensity, setup.crossGlow.distance, 1.5);
-      // Fridge light: cool teal at the cold-chain bay, the room's second temperature.
+    if (setup.fridgeGlow) {
+      // Named, because "crossGlow" spent a whole pass pretending the pharmacy cross
+      // was the light source. It is the fridge: the room's second temperature, pinned
+      // to the cold-chain bay's own origin rather than to a hand-typed coordinate.
       const cold = SHELF_BAYS.find((bay) => bay.category === 'cold_chain');
-      crossGlow.position.set(cold ? cold.x : 3.2, 1.8, cold ? cold.z : 0.6);
-      this.group.add(crossGlow);
+      const fridgeGlow = new THREE.PointLight(
+        setup.fridgeGlow.color,
+        setup.fridgeGlow.intensity,
+        setup.fridgeGlow.distance,
+        1.5
+      );
+      fridgeGlow.name = 'pharm-fridge-light';
+      fridgeGlow.position.set(cold ? cold.x : 3.2, 1.8, cold ? cold.z : 0.6);
+      this.group.add(fridgeGlow);
     }
   }
 
