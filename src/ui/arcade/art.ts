@@ -68,11 +68,31 @@ export const LIGHTS: Record<ArtVersion, LightSetup> = {
     // where the player spends the session read as interior; the fridge spills cool
     // teal on the cold chain so the room has a second colour temperature.
     ambient: { color: 0xf4f1ea, intensity: 0.08 },
+    // Colour left at 0xffe9c9 on purpose: warming it to 0xffdfb4 moved the frame's
+    // R−B separation by 0.6, because the cast is the sage wall and the cool tile, not
+    // the key. That is a palette question for P5, not a grade, so the diff stays small.
     sun: { color: 0xffe9c9, intensity: 2.6 },
     hemisphere: { sky: 0xa8d4ff, ground: 0x8a6440, intensity: 0.24 },
     counterSpot: { color: 0xffd9a0, intensity: 2.4, distance: 9 },
     fridgeGlow: { color: 0x2e8b8b, intensity: 1.0, distance: 6 },
   },
+};
+
+/**
+ * Grade. The plan's knobs for P4 task 4 are exposure, key intensity and environment
+ * intensity, and only those — ambient is the one value that must not move, because
+ * lifting it flattens the form the roughness pass just built.
+ *
+ * The numbers are set against `docs/art/references/*` at 390 px: ref-B is the closest
+ * frame to this room (terracotta floor, sage wall, warm interior) and a still that
+ * matches it has an interior mean around 122 with nothing above 250. v4 sat at 107
+ * whole-frame / 122 interior with a full stop of crush in the margin, so the lift is
+ * small on purpose: 1.0 → 1.12 exposure and 0.14 → 0.18 environment, sun unchanged.
+ */
+export const GRADE: Record<Exclude<ArtVersion, 'v1'>, { exposure: number; environment: number }> = {
+  v2: { exposure: 1.0, environment: 0.14 },
+  v3: { exposure: 1.0, environment: 0.14 },
+  v4: { exposure: 1.12, environment: 0.26 },
 };
 
 /**
@@ -87,7 +107,7 @@ export function applyEnvironment(scene: THREE.Scene, renderer: THREE.WebGLRender
   const room = new RoomEnvironment();
   const target = pmrem.fromScene(room, 0.04);
   scene.environment = target.texture;
-  scene.environmentIntensity = 0.14;
+  scene.environmentIntensity = GRADE[version].environment;
   room.dispose?.();
   pmrem.dispose();
 }
@@ -184,7 +204,8 @@ export function applyArtDirection(
   tuneSurfaceMaterials(root);
   if (renderer) {
     // v2 lights the room with the sun and the environment map instead of a flat
-    // ambient wash, so it needs a little less exposure, not more.
-    renderer.toneMappingExposure = 1.0;
+    // ambient wash, so it needs a little less exposure, not more. v4's exposure is
+    // graded against the concept frames; v1 returns above and keeps its own.
+    renderer.toneMappingExposure = GRADE[version].exposure;
   }
 }

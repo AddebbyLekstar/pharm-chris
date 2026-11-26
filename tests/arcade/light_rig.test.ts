@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { ArcadeScene } from '../../src/ui/arcade/ArcadeScene';
 import { PharmacyShelves3D } from '../../src/ui/arcade/PharmacyShelves3D';
-import { LIGHTS, artVersion } from '../../src/ui/arcade/art';
+import { LIGHTS, GRADE, artVersion } from '../../src/ui/arcade/art';
 import { COUNTER, SHELF_BAYS } from '../../src/ui/arcade/layout';
 
 describe('light rig v4', () => {
@@ -26,6 +26,19 @@ describe('light rig v4', () => {
 
   it('keeps ambient fill under 0.12 so form survives', () => {
     expect(LIGHTS.v4.ambient.intensity).toBeLessThanOrEqual(0.12);
+  });
+
+  it('grades v4 with exposure and environment only, ambient untouched', () => {
+    // P4 task 4: the permitted knobs are exposure, key intensity and environment
+    // intensity. These numbers are the A/B against docs/art/references/ref-B, so they
+    // are pinned: a later tweak has to say so in the diff rather than drift the look.
+    expect(GRADE.v4.exposure).toBeCloseTo(1.12, 3);
+    expect(GRADE.v4.environment).toBeCloseTo(0.26, 3);
+    expect(LIGHTS.v4.sun.intensity).toBeCloseTo(2.6, 3);
+    expect(LIGHTS.v4.ambient.intensity).toBeCloseTo(0.08, 3);
+    // Older passes stay at their own grade so a regression still screenshots honestly.
+    expect(GRADE.v2.exposure).toBeCloseTo(1.0, 3);
+    expect(GRADE.v3.environment).toBeCloseTo(0.14, 3);
   });
 
   it('hangs the pendant over the counter and the cool light on the cold chain', () => {

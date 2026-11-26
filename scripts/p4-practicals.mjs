@@ -38,13 +38,32 @@ await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForFunction('!!window.pharmChris', null, { timeout: 40000 });
 await page.waitForTimeout(4000);
 
-// HUD off, so the crop is the room and not a button.
+// HUD off, so the crop is the room and not a button. Name the elements: the old
+// text-match hid the top bar but left the INVEST button, the hint line and the
+// joystick in the frame, which is not the HUD-free still the plan asks for.
 await page.evaluate(() => {
-  for (const el of document.querySelectorAll('body > div, body > section')) {
-    const text = (el.textContent || '').slice(0, 40);
-    if (/CASH|DAY 1|PICK UP/i.test(text)) el.setAttribute('style', 'display:none !important');
-  }
+  const hide = (sel) => {
+    for (const el of document.querySelectorAll(sel)) {
+      el.setAttribute('style', 'display:none !important');
+    }
+  };
+  const hud = document.getElementById('pharm-hud');
+  if (hud) hud.style.display = 'none';
+  hide('#sim-mode-switcher');
+  hide('#arcade-joystick, .joystick, #pharm-toasts, #pharm-objective, #pharm-invest-btn, .hint');
+  hide('[class*="joystick"], [id*="joystick"]');
 });
+const hudStillVisible = await page.evaluate(() => {
+  const ids = ['pharm-hud', 'sim-mode-switcher', 'pharm-invest-btn'];
+  const vis = (id) => {
+    const el = document.getElementById(id);
+    return !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
+  };
+  return Object.fromEntries(ids.map((id) => [id, vis(id)]));
+});
+if (Object.values(hudStillVisible).some(Boolean)) {
+  console.warn('probe: overlay still visible', JSON.stringify(hudStillVisible));
+}
 
 const rects = await page.evaluate(() => {
   const p = window.pharmChris;
